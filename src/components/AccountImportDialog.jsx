@@ -7,6 +7,7 @@
 // 这是存档级操作；而数据录入页的状态是挂载时读一次的、没订阅存档变更，
 // 在那里做导入会让页面状态与当前存档错位（改一格就会把旧存档的记录写进新存档）。
 import { useRef, useState } from 'react'
+import BlablaAccountImport from './BlablaAccountImport.jsx'
 import ConfirmDialog from './ConfirmDialog.jsx'
 import NumField from './NumField.jsx'
 import { ACCOUNT_FORMAT, parseAccountExport } from '../lib/accountImport.js'
@@ -54,6 +55,16 @@ export default function AccountImportDialog({ onClose, initial = null, onProfile
   const [synchro, setSynchro] = useState(() => initial?.parsed?.synchroLevel ?? null)
   const [pending, setPending] = useState(null)
   const [done, setDone] = useState(null)
+
+  const directImport = Boolean(window.nikkeDesktop?.blablalink)
+  const acceptAccountData = raw => {
+    const parsed = parseAccountExport(JSON.stringify(raw))
+    if (!parsed.ok) throw new Error(parsed.errors.join('；'))
+    setError('')
+    setResult(parsed)
+    setName(parsed.parsed.name || nextProfileName())
+    setSynchro(parsed.parsed.synchroLevel)
+  }
 
   const profiles = listProfiles()
   const trimmedName = name.trim()
@@ -221,14 +232,15 @@ export default function AccountImportDialog({ onClose, initial = null, onProfile
               )}
 
               <p className="import-hint">
-                {t('导入会新建或替换一个存档；当前档不会被动到，导入完成后会自动切到新存档。')}
+                {t('请选择新建档案，或输入已有档案名称后选择覆盖。确认保存后会切换至导入的档案。')}
               </p>
             </>
           ) : (
             <>
-              <p className="dlg-text">
+              {directImport && <BlablaAccountImport onReady={acceptAccountData}/>}
+              {!directImport && <p className="dlg-text">
                 {t('BlaBlaLink 账号数据需要先在浏览器里装一个油猴脚本：脚本在你的浏览器内直接向官方接口取数，数据只留在本机，不会上传到任何服务器。')}
-              </p>
+              </p>}
               <div
                 className={dragActive ? 'ocr-drop active' : 'ocr-drop'}
                 onDragOver={(event) => {
@@ -260,11 +272,11 @@ export default function AccountImportDialog({ onClose, initial = null, onProfile
                   readFile(file)
                 }}
               />
-              <p className="import-hint">
+              {!directImport && <p className="import-hint">
                 {t('还没装脚本？')}
                 <a href={assetUrl(SCRIPT_FILE)} target="_blank" rel="noreferrer">{t('下载油猴脚本')}</a>
                 {t('（需要浏览器先装 Tampermonkey；脚本装好后在 BlaBlaLink 页面点「导出到 NIKKE Photos」）。')}
-              </p>
+              </p>}
             </>
           )}
 
@@ -276,7 +288,7 @@ export default function AccountImportDialog({ onClose, initial = null, onProfile
             <button type="button" className="btn btn-primary" onClick={onClose}>{t('完成')}</button>
           ) : result ? (
             <>
-              <button type="button" className="btn" onClick={() => { setResult(null); setError('') }}>{t('重新选择文件')}</button>
+              <button type="button" className="btn" onClick={() => { setResult(null); setError('') }}>{directImport ? '重新读取或选择文件' : t('重新选择文件')}</button>
               {sameNameProfile ? (
                 <button
                   type="button"

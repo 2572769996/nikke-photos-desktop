@@ -10,13 +10,14 @@ function normalizeRows(result){return [1,2,3].map(position=>{
  if(row?.status==='ok'&&!row.needsConfirm&&Number.isFinite(row.value)&&row.name)return {...row,reason:null};
  // Preserve the engine's closest candidate. It remains non-writable until
  // manually confirmed, including rows where only the name was recognized.
- if(row&&(row.name||row.functionType||row.status==='empty'))return {...row,status:'unreadable',empty:false,reason:'needs_confirmation',suggested:true,suggestedEmpty:row.status==='empty',needsConfirm:true};
+ if(row&&(row.name||row.functionType||row.status==='empty'))return {...row,status:'unreadable',empty:false,reason:Number.isFinite(row.value)?'needs_confirmation':'value_missing',suggested:Number.isFinite(row.value),suggestedEmpty:row.status==='empty',needsConfirm:true};
  return {...emptyRows('unreadable')[position-1],flags:row?.flags||[],needsConfirm:true};
 });}
 function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execute,ocr}){
  const base=path.join(cacheRoot,'maanikke-collection'),latest=path.join(base,'latest.json');fs.mkdirSync(base,{recursive:true});
  const roster=JSON.parse(fs.readFileSync(path.join(project,'src/data/roster.json'),'utf8')).characters;
- const cnCodes=new Set(JSON.parse(fs.readFileSync(path.join(project,'src/data/cn-roster.json'),'utf8')).nameCodes);
+ const cnDefinition=JSON.parse(fs.readFileSync(path.join(project,'src/data/cn-roster.json'),'utf8'));
+ const cnCodes={has(code){const unlockAt=cnDefinition.unlockAt?.[code];return cnDefinition.nameCodes.includes(code)&&(!unlockAt||Date.now()>=Date.parse(unlockAt));}};
  const byCode=new Map(roster.map(c=>[c.nameCode,c]));let active=null,last=null,promise=null;
  const preferencesFile=path.join(base,'preferences.json');
  function preferences(value){
@@ -201,7 +202,7 @@ function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execut
    const screenshotTask=screenshots.beginTask();
    const job={folder,registered,screenshotTask,generations:{},ocrTail:Promise.resolve(),status:{runId,folder,nameCodes,keys,active:true,stage:'starting',paused:false,pendingOCR:0,reviewImageIds,createdAt:Date.now(),currentIndex:0,currentName:'',draft,logs:[],screenshotTaskId:screenshotTask}};
    active=job;last=job.status;persist(job);atomic(latest,{runId});
-   atomic(path.join(folder,'request.json'),{version:1,action:'collect-roster',runId,createdAt:Date.now()/1000,ownerPid:process.pid,nameCodes,completedCodes,target:{hwnd:target.hwnd,pid:target.pid}});
+   atomic(path.join(folder,'request.json'),{version:1,action:'collect-roster',runId,createdAt:Date.now()/1000,ownerPid:process.pid,capturePolicy:process.env.NIKKE_CAPTURE_POLICY==='printwindow-only'?'printwindow-only':'auto',nameCodes,completedCodes,target:{hwnd:target.hwnd,pid:target.pid}});
    let index=1,handling=false;
    const tick=async()=>{
     if(handling)return;const request=path.join(folder,'spool',index+'.json');if(!fs.existsSync(request))return;

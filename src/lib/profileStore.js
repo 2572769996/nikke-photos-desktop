@@ -458,9 +458,9 @@ export const recordedCodes = () => Object.keys(loadStore().characters).filter(is
 export const countRecords = () => recordedCodes().length
 
 // ---- 对外：整档 JSON 导出 / 导入 ----
-export function exportProfile() {
+export function exportProfile(id) {
   const index = ensureIndex()
-  const profile = currentOf(index)
+  const profile = id === undefined ? currentOf(index) : index.profiles.find(item => item.id === id)
   return JSON.stringify({
     format: PROFILE_FORMAT,
     version: STORE_VERSION,
@@ -473,6 +473,52 @@ export function exportProfile() {
     schemes: (profile.schemes || []).map((scheme) => ({ ...scheme })),
     characters: readCharacters(profile.id) || {},
   }, null, 2)
+}
+
+export function exportProfilesBackup() {
+  return { format: 'nikke-photos-profiles-backup', version: 1,
+    profiles: listProfiles().map(profile => {
+      const data = JSON.parse(localStorage.getItem(DATA_KEY(profile.id)))
+      if (!data?.characters || typeof data.characters !== 'object' || Array.isArray(data.characters)) throw Error(`档案“${profile.name}”内容无法读取，请先检查本机数据`)
+      return JSON.parse(exportProfile(profile.id))
+    }) }
+}
+
+export function prepareProfilesBackup(file) {
+  if (file?.format !== 'nikke-photos-profiles-backup' || file.version !== 1 || !Array.isArray(file.profiles) || !file.profiles.length) {
+    throw Error('请选择全部档案备份文件')
+  }
+  return file.profiles.map(input => {
+    if (input?.format !== PROFILE_FORMAT || !input.characters || typeof input.characters !== 'object' || Array.isArray(input.characters)) throw Error('档案备份内容无效')
+    const parsed = parseProfile(JSON.stringify(input))
+    const { characters, unknown } = recognizedImportCharacters(parsed)
+    assertEquipmentChanges({}, characters)
+    return { ...parsed, characters, unknown }
+  })
+}
+
+export function restoreProfilesBackup(file) {
+  const profiles = prepareProfilesBackup(file)
+  const index = ensureIndex()
+  const written = []
+  try {
+    for (const profile of profiles) {
+      const id = newId()
+      const stamp = now()
+      written.push(id)
+      writeCharacters(id, profile.characters)
+      index.profiles.push({ id, name: profile.name || '恢复的存档', remark: profile.remark,
+        synchroLevel: profile.synchroLevel, research: profile.research, schemes: profile.schemes,
+        createdAt: stamp, updatedAt: stamp, deletable: true })
+    }
+    // 新数据写齐后才发布索引，失败时原档案与当前选择仍可用。
+    writeIndex(index)
+  } catch (error) {
+    for (const id of written) localStorage.removeItem(DATA_KEY(id))
+    throw error
+  }
+  emit()
+  return profiles.length
 }
 
 /** 解析整档 JSON（兼容旧版裸 characters 对象），返回元信息与统计 */

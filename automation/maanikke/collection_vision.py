@@ -1,6 +1,7 @@
 """Small deterministic image helpers for the supported 1920x1080 layout."""
 import re
 import random
+import unicodedata
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -9,6 +10,21 @@ ASSETS=Path(__file__).resolve().parent/'resource/image/collection'
 
 def normalized_name(text):
     return re.sub(r'[^\u3400-\u9fffA-Za-z0-9]','',text).lower()
+
+def search_query_matches(target, texts):
+    """Exact complete input, allowing OCR spacing/width and a trailing caret only.
+
+    Deliberately stricter than character-card fragment matching: partial names,
+    duplicate input, changed qualifiers and clear-button letters must fail.
+    OCR callers pass threshold-filtered text from the input-only ROI.
+    """
+    def canonical(text):
+        return re.sub(r'\s+', '', unicodedata.normalize('NFKC', text)).casefold()
+    expected = canonical(target)
+    actual = canonical(''.join(texts))
+    if actual.endswith('|'):
+        actual = actual[:-1]
+    return bool(expected) and actual == expected
 
 def name_fragment_matches(target,text):
     target=normalized_name(target);text=normalized_name(text)

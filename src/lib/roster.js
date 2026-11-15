@@ -46,6 +46,9 @@ export const iconFor = (key, value) => iconIndex.get(`${key}:${value}`) || ''
 /** 角色显示名：繁体模式下走字形映射（数据层名词，见 lib/hant.js） */
 export const displayName = (character) => tData(character?.nameCn ?? '')
 
+/** User-facing labels never expose the internal identity key as a name. */
+export const characterNameForCode = code => displayName(findCharacter(String(code))) || '未收录角色'
+
 const norm = (value) => String(value ?? '').toLowerCase()
 /** 搜索归一：简繁字形先统一（两种写法都能命中），再转小写 */
 const searchKey = (value) => norm(toHantChars(value))

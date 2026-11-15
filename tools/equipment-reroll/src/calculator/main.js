@@ -1,3 +1,5 @@
+import { storageKey } from '../calculator-profile.js'
+const CALCULATOR_RUN_RECORDS_KEY = storageKey(LEGACY_RUN_RECORDS_KEY);
 // Desktop adaptation: isolated manual calculator; no extension storage, account snapshots, or roster writes.
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { validateInputs, TIER_PROBS, STAT_NAMES, STAT_TIER_VALUES, isTargetCode, targetIndexFromCode, exactActionDescription, statTierBasisPoints, statTierText } from "./engine.js";
@@ -10,7 +12,7 @@ import {
   GLOBAL_TARGET_PRESETS,
 } from "./globalPresets.js";
 import {
-  CALCULATOR_RUN_RECORDS_KEY,
+  CALCULATOR_RUN_RECORDS_KEY as LEGACY_RUN_RECORDS_KEY,
   listRunRecords,
   normalizeRunRecordStore,
   sortRunRecords,
@@ -307,6 +309,7 @@ import { CALCULATION_RULES, calculationRuleLabel, normalizeCalculationRule } fro
     }
 
     function clearGlobalPlanOutputs() {
+      setDetails(defaultDetails());
       characterEquipmentMode.querySelectorAll(".global-assignment-output").forEach(output => {
         output.textContent = "运行全局测试后显示。";
       });
@@ -410,6 +413,12 @@ import { CALCULATION_RULES, calculationRuleLabel, normalizeCalculationRule } fro
     }
 
     function setCalculationMode(mode) {
+      setResult("条件已更改，请重新计算。", true);
+      setDetails(defaultDetails());
+      setInlineOptimalResult(classicOptimalResult, "开始计算后显示。", true);
+      characterEquipmentMode.querySelectorAll(".equipment-optimal-result").forEach(output => {
+        setInlineOptimalResult(output, "开始计算后显示。", true);
+      });
       const useGlobalMode = mode === "global" && characterSelect.value !== "current";
       calculationModeSelect.value = useGlobalMode ? "global" : "equipment";
       globalTargetMode.hidden = !useGlobalMode;
@@ -637,6 +646,7 @@ import { CALCULATION_RULES, calculationRuleLabel, normalizeCalculationRule } fro
         fillRows(currentRows, equipment.lines);
         const skipInput = section.querySelector(".equipment-skip-input");
         skipInput.addEventListener("change", () => {
+          clearScopedOptimalResult(skipInput);
           setEquipmentSkipped(section, skipInput.checked);
           setInlineOptimalResult(
             section.querySelector(".equipment-optimal-result"),
@@ -975,6 +985,9 @@ import { CALCULATION_RULES, calculationRuleLabel, normalizeCalculationRule } fro
     }
 
     function clearScopedOptimalResult(control) {
+      setResult("条件已更改，请重新计算。", true);
+      setDetails(defaultDetails());
+      showMessage("");
       const section = control.closest(".character-equipment-slot");
       if (section) {
         const skipped = section.querySelector(".equipment-skip-input")?.checked;

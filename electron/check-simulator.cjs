@@ -2,6 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(read,label){for(let i=0;i<200;i++){const v=await read();if(v)return v;await delay(75)}throw Error('Simulator timeout: '+label)}
 module.exports=async function checkSimulator(window,cacheRoot){
+  window.show();window.focus();
   const web=window.webContents;
   const parent=web.mainFrame,calculator=web.mainFrame.frames.find(f=>f.url.includes('/equipment-reroll/index.html'));
   const hostBefore=await web.executeJavaScript('JSON.stringify({...localStorage})');

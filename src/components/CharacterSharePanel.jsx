@@ -1,3 +1,4 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 import CharacterAvatar from './CharacterAvatar.jsx'
 // 角色数据分享码面板：勾选已完善角色 + 勾选导出字段 → 实时生成 NKP2 分享码
 //
@@ -29,6 +30,7 @@ const DEFAULT_TOGGLES = { cnPublished: false, collectible: false, overSpec: fals
 const NO_SELECTION = {}
 
 export default function CharacterSharePanel() {
+  const cnRevision = useCnRosterRevision()
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(NO_SELECTION)
   const [toggles, setToggles] = useState(DEFAULT_TOGGLES)
@@ -53,7 +55,7 @@ export default function CharacterSharePanel() {
   const pool = useMemo(() => fullyCodes.map(findCharacter).filter(character => character && !character.isCustom && CHARACTERS.includes(character)), [fullyCodes, CHARACTERS])
   const filtered = useMemo(
     () => applyFilters(pool, { search, selected, toggles }),
-    [pool, search, selected, toggles],
+    [pool, search, selected, toggles, cnRevision],
   )
   const activeCount = countActiveFilters(selected, toggles)
 

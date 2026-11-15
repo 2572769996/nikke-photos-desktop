@@ -26,3 +26,5 @@
 .gear-goals th:first-child { width:45%; }
 .gear-goals th:last-child, .gear-goals td:last-child { white-space:nowrap; }
 .gear-recalculate { margin:10px 0 0; }
+
+.resource-controls [hidden] { display:none !important; }

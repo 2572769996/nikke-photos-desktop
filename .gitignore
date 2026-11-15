@@ -18,3 +18,11 @@ __pycache__/
 runtime/
 codex temp/
 build/installed-files.nsh
+
+.cache/
+AGENTS.md
+工作日志/
+docs/
+tools/damage-simulator/python/*
+!tools/damage-simulator/python/LICENSE.txt
+public/tools/sr-collection/

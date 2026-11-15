@@ -1,7 +1,7 @@
 {
   "name": "nikke-photos-desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --configLoader native",
@@ -42,6 +42,11 @@
     "strategy:check": "node --test tools/equipment-reroll/strategy-tests/*.test.mjs",
     "strategy:ui-check": "node desktop-scripts/check-reroll-strategy.cjs",
     "simulator:check": "node --test tools/equipment-reroll/simulator-tests/*.test.mjs",
+    "damage:prepare": "node desktop-scripts/prepare-damage-catalog.mjs",
+    "damage:check": "node desktop-scripts/check-damage-simulator.mjs",
+    "damage:ui-check": "node desktop-scripts/check-damage-simulator-ui.cjs",
+    "solo-raid:check": "node desktop-scripts/check-solo-raid.mjs",
+    "solo-raid:ui-check": "node desktop-scripts/check-damage-simulator-ui.cjs --solo-raid",
     "resource-income:check": "node --test scripts/check-resource-income.test.mjs",
     "belorta:check": "node scripts/check-belorta.mjs",
     "capture:check": "node scripts/check-capture-source.cjs && node scripts/check-capture-frame.cjs",
@@ -57,6 +62,7 @@
   },
   "dependencies": {
     "html-to-image": "^1.11.13",
+    "opencc-js": "1.4.2",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"
@@ -68,9 +74,11 @@
     "electron": "^45.0.0",
     "electron-builder": "^26.18.0",
     "element-plus": "^2.14.7",
+    "esbuild": "0.28.2",
     "exceljs": "^4.4.0",
     "pinyin-pro": "^3.29.4",
     "pngjs": "^7.0.0",
+    "typescript": "7.0.2",
     "vite": "^8.3.1",
     "vue": "^3.5.44"
   },
@@ -81,7 +89,7 @@
     "appId": "local.nikke.photos.desktop",
     "productName": "NIKKE Photos",
     "directories": {
-      "output": "release/v1.0",
+      "output": "release/v1.2.0",
       "buildResources": "build"
     },
     "files": [
@@ -98,6 +106,17 @@
       "!devtools/**/*"
     ],
     "asar": true,
+    "extraResources": [
+      {
+        "from": "tools/damage-simulator",
+        "to": "damage-simulator",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
+      }
+    ],
     "npmRebuild": false,
     "win": {
       "icon": "build/icon.ico",
@@ -130,7 +149,7 @@
       "runAfterFinish": false,
       "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
-      "artifactName": "NIKKE-Photos-v1.0-Windows-x64-Setup.exe",
+      "artifactName": "NIKKE-Photos-v1.2.0-Windows-x64-Setup.exe",
       "include": "build/installer.nsh",
       "installerLanguages": [
         "zh_CN",

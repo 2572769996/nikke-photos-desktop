@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { currentLocale, t } from '../lib/i18n.js'
 import { DEFAULT_NIKKE_TOOL, NIKKE_TOOLS } from '../lib/nikkeTools.js'
 import '../styles/nikkeTools.css'
 import ResourceIncomePage from './ResourceIncomePage.jsx'
+import OfficialCdkPage from './OfficialCdkPage.jsx'
+const StoryReaderPage = lazy(() => import('./StoryReaderPage.jsx'))
+const DamageSimulatorPage = lazy(() => import('./DamageSimulatorPage.jsx'))
+const SynchroPlannerPage = lazy(() => import('./SynchroPlannerPage.jsx'))
 import RerollEquipmentImportDialog from '../components/RerollEquipmentImportDialog.jsx'
 
 function ToolFrame({ tool, active }) {
@@ -38,7 +42,7 @@ function ToolFrame({ tool, active }) {
         window.dispatchEvent(new CustomEvent('nikke:tool-file-drop', { detail:event.data }))
       }
       const simulatorRequest=tool.id==='equipment-simulator' && event.data?.type==='nikke-simulator:request-import' && ['single','character'].includes(event.data.scope)
-      const calculatorRequest=tool.id==='equipment-reroll' && event.data?.type==='nikke-reroll:request-import' && (!event.data.purpose || event.data.purpose==='expectation')
+      const calculatorRequest=['equipment-reroll','key-strategy'].includes(tool.id) && event.data?.type==='nikke-reroll:request-import' && (!event.data.purpose || event.data.purpose==='expectation')
       if ((simulatorRequest || calculatorRequest) && activeRef.current && typeof event.data.requestId === 'string' && event.data.requestId.length <= 80) {
         const purpose=simulatorRequest ? 'simulator-'+event.data.scope : 'expectation'
         const resultType=simulatorRequest ? 'nikke-simulator:import-result' : 'nikke-reroll:import-result'
@@ -72,7 +76,7 @@ function ToolFrame({ tool, active }) {
         <button type="button" onClick={() => setRetry(value => value + 1)}>{t('重新加载')}</button>
       </div>}
       <iframe key={retry} ref={frame} src={src} title={t(tool.name)} className="nikke-tool-frame"
-        sandbox="allow-scripts allow-same-origin" onError={() => setFailed(true)} />
+        sandbox={`allow-scripts allow-same-origin${tool.id === 'sr-collection' ? ' allow-modals' : ''}`} onError={() => setFailed(true)} />
       {importRequest ? <RerollEquipmentImportDialog key={importRequest.requestId} purpose={importRequest.purpose} onClose={() => finishImport(null)} onImport={finishImport} /> : null}
     </section>
   )
@@ -80,19 +84,23 @@ function ToolFrame({ tool, active }) {
 
 
 export default function NikkeToolsPage() {
-  const [selected, setSelected] = useState(DEFAULT_NIKKE_TOOL.id)
-  const [visited, setVisited] = useState([DEFAULT_NIKKE_TOOL.id])
+  const [selected, setSelected] = useState(() => {
+    const saved = localStorage.getItem('nikke-photos/last-tool')
+    return NIKKE_TOOLS.find(tool => tool.id === saved && tool.status === 'ready')?.id || DEFAULT_NIKKE_TOOL.id
+  })
+  const [visited, setVisited] = useState(() => [selected])
   const select = (id) => {
     setVisited(value => value.includes(id) ? value : [...value, id])
     setSelected(id)
+    localStorage.setItem('nikke-photos/last-tool', id)
   }
   return <main className="nikke-tools-page" aria-label={t('妮姬工具')}>
     <nav className="tools-switcher" role="tablist" aria-label={t('工具切换')}>
       {NIKKE_TOOLS.filter(tool => tool.status === 'ready').map(tool =>
         <button key={tool.id} type="button" role="tab" id={`tab-${tool.id}`} aria-controls={`panel-${tool.id}`}
-          aria-selected={selected === tool.id} onClick={() => select(tool.id)}>{t(tool.name)}</button>)}
+          aria-selected={selected === tool.id} onClick={() => select(tool.id)}>{tool.subtitle?<><span>{t(tool.label)}</span><small>{t(tool.subtitle)}</small></>:t(tool.name)}</button>)}
     </nav>
     {NIKKE_TOOLS.filter(tool => visited.includes(tool.id)).map(tool =>
-      tool.kind === 'native' ? <section key={tool.id} hidden={selected !== tool.id} className="nikke-tool-panel" role="tabpanel" id={`panel-${tool.id}`} aria-labelledby={`tab-${tool.id}`}><ResourceIncomePage /></section> : <ToolFrame key={tool.id} tool={tool} active={selected === tool.id} />)}
+      ['native','damage','story','official','synchro'].includes(tool.kind) ? <section key={tool.id} hidden={selected !== tool.id} className="nikke-tool-panel" role="tabpanel" id={`panel-${tool.id}`} aria-labelledby={`tab-${tool.id}`}>{tool.kind==='synchro'?<Suspense fallback={<div className="tools-status">正在加载升级计算…</div>}><SynchroPlannerPage/></Suspense>:tool.kind==='official'?<OfficialCdkPage active={selected === tool.id}/>:tool.kind==='story'?<Suspense fallback={<div className="tools-status">正在加载主线剧情…</div>}><StoryReaderPage active={selected === tool.id}/></Suspense>:tool.kind==='damage'?<Suspense fallback={<div className="tools-status">正在加载编队伤害模拟…</div>}><DamageSimulatorPage/></Suspense>:<ResourceIncomePage />}</section> : <ToolFrame key={tool.id} tool={tool} active={selected === tool.id} />)}
   </main>
 }

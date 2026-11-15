@@ -3,6 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const project = path.resolve(__dirname, '..');
+// Session-only diagnostic launch. Never persist the override or accept it from renderer RPC.
+const printWindowOnly = !app.isPackaged && process.argv.includes('--printwindow-only');
+if(printWindowOnly)process.env.NIKKE_CAPTURE_POLICY='printwindow-only';
+else delete process.env.NIKKE_CAPTURE_POLICY;
 // Experimental launchers are suspended; reject them before touching any data directory.
 if(process.argv.some(arg=>arg.startsWith('--maa-')))throw Error('自动化实验室已屏蔽，实验启动参数不可使用');
 const {resolveStoragePaths,writeLocation}=require('./storage-paths.cjs');
@@ -32,7 +36,8 @@ const workspaceUiCheck = !app.isPackaged && process.argv.includes('--workspace-u
 const rerollStrategyCheck = !app.isPackaged && process.argv.includes('--reroll-strategy-check');
 const maanikkeUiCheck = !app.isPackaged && process.argv.includes('--maanikke-ui-check');
 const collectionUiCheck = !app.isPackaged && process.argv.includes('--collection-ui-check');
-const smoke = !app.isPackaged && (collectionUiCheck || maanikkeUiCheck || rerollStrategyCheck || workspaceUiCheck || rerollImportCheck || customNikkeCheck || sourcePickerCheck || captureCheck || process.argv.includes('--smoke-test'));
+const srCollectionCheck = !app.isPackaged && process.argv.includes('--sr-collection-check');
+const smoke = !app.isPackaged && (srCollectionCheck || collectionUiCheck || maanikkeUiCheck || rerollStrategyCheck || workspaceUiCheck || rerollImportCheck || customNikkeCheck || sourcePickerCheck || captureCheck || process.argv.includes('--smoke-test'));
 let mainWindow;
 if(smoke) setTimeout(()=>app.exit(1),process.argv.includes('--collection-live-check')?900000:90000).unref();
 const log = message => fs.appendFileSync(path.join(cacheRoot,'logs','desktop.log'), new Date().toISOString()+' '+message+'\n');
@@ -41,7 +46,7 @@ app.on('second-instance', () => { if (mainWindow) { if(mainWindow.isMinimized())
 app.whenReady().then(async () => {
   protocol.handle('nikke', request => {
     const url = new URL(request.url);
-    if(!['app','tools','reroll'].includes(url.host)) return new Response('Forbidden',{status:403});
+    if(!['app','tools','reroll','collection'].includes(url.host)) return new Response('Forbidden',{status:403});
     let filename;
     try { filename = decodeURIComponent(url.pathname); } catch { return new Response('Bad path',{status:400}); }
     const base = url.host === 'app' ? path.join(project,'dist') : path.join(project,'dist','tools');
@@ -52,6 +57,7 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_web, permission, callback) => callback(permission === 'display-capture'));
   session.defaultSession.setPermissionCheckHandler((_web, permission) => permission === 'display-capture');
   session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+    if(printWindowOnly)return callback({});
     try {
       const {desktopCapturer} = require('electron');
       if(!mainWindow || request.frame !== mainWindow.webContents.mainFrame || !request.frame.url.startsWith('nikke://app/')) return callback({});
@@ -68,17 +74,23 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle('desktop:info', event => {
     if(event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame || !event.senderFrame.url.startsWith('nikke://app/')) throw new Error('Invalid sender');
-    return {version:app.getVersion(),cacheRoot,dataRoot,storageMode,capabilities:{screenCapture:true,automation:true,applicationSource:app.isPackaged}};
+    return {version:app.getVersion(),cacheRoot,dataRoot,storageMode,capturePolicy:printWindowOnly?'printwindow-only':'auto',capabilities:{screenCapture:true,automation:true,applicationSource:app.isPackaged}};
   });
   const {createResourceIncomeStore} = await import('./resource-income-store.mjs');
   const resourceIncomeStore = createResourceIncomeStore(dataRoot);
   function requireResourceSender(event) {
     if(event.sender !== mainWindow?.webContents || event.senderFrame !== mainWindow.webContents.mainFrame || !event.senderFrame.url.startsWith('nikke://app/')) throw new Error('Invalid sender');
   }
+  const damageService = require('./damage-simulator.cjs').createDamageService({project,resourcesPath:process.resourcesPath,packaged:app.isPackaged});
+  ipcMain.handle('damage-simulator:status', event => { requireResourceSender(event); return damageService.status(); });
+  ipcMain.handle('damage-simulator:simulate', (event,draft) => { requireResourceSender(event); return damageService.simulate(draft); });
+  ipcMain.handle('damage-simulator:cancel', event => { requireResourceSender(event); return damageService.cancel(); });
+  app.on('before-quit',()=>damageService.cancel());
   let nativeCaptureBusy=false;
   let presentSources;
   ipcMain.handle('desktop:capture-frame',async(event,options)=>{
     requireResourceSender(event);
+    if(printWindowOnly)throw Error('备用专用测试已禁用手动WGC截图，请在装备采集页测试PrintWindow/GDI');
     if(nativeCaptureBusy)throw Error('截图正在进行，请稍候');
     nativeCaptureBusy=true;
     try {
@@ -92,7 +104,7 @@ app.whenReady().then(async () => {
       return result;
     }finally{nativeCaptureBusy=false;}
   });
-  for(const [name,operation] of Object.entries({read:()=>resourceIncomeStore.read(),save:input=>resourceIncomeStore.upsert(input),remove:date=>resourceIncomeStore.remove(date)})) {
+  for(const [name,operation] of Object.entries({read:()=>resourceIncomeStore.read(),save:input=>resourceIncomeStore.upsert(input),remove:date=>resourceIncomeStore.remove(date),restore:input=>resourceIncomeStore.restore(input)})) {
     ipcMain.handle('resource-income:'+name,(event,input)=>{requireResourceSender(event);return operation(input)});
   }
   ipcMain.handle('resource-income:export',async event=>{
@@ -103,7 +115,29 @@ app.whenReady().then(async () => {
     if([resourceIncomeStore.file,resourceIncomeStore.file+'.bak',resourceIncomeStore.file+'.next'].some(file=>path.resolve(file).toLowerCase()===path.resolve(filePath).toLowerCase()))throw Error('请选择独立备份文件，不能覆盖工作数据');
     fs.writeFileSync(filePath,content,'utf8');return {canceled:false};
   });
-  mainWindow = new BrowserWindow({width:1440,height:960,minWidth:1000,minHeight:700,show:!smoke&&process.env.NIKKE_QA_HIDDEN!=='1',title:'NIKKE Photos',icon:path.join(project,'dist','favicon.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:!smoke,offscreen:smoke && !rerollStrategyCheck && !workspaceUiCheck && !sourcePickerCheck && !customNikkeCheck && !rerollImportCheck}});
+  mainWindow = new BrowserWindow({width:1440,height:960,minWidth:1000,minHeight:700,show:!smoke&&process.env.NIKKE_QA_HIDDEN!=='1',title:'NIKKE Photos',icon:path.join(project,'dist','favicon.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:!smoke,offscreen:smoke && !srCollectionCheck && !rerollStrategyCheck && !workspaceUiCheck && !sourcePickerCheck && !customNikkeCheck && !rerollImportCheck}});
+  const {createStoryReader, registerStoryReader} = require('./story-reader.cjs');
+  const {createOfficialCdk, registerOfficialCdk} = require('./official-cdk.cjs');
+  const officialCdk = createOfficialCdk({window:mainWindow, onState:state => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('official-cdk:state',state);
+  }});
+  registerOfficialCdk({ipcMain, requireSender:requireResourceSender, service:officialCdk});
+  const storyService = createStoryReader({dataRoot, onProgress:state => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('story-reader:progress', state);
+  }});
+  registerStoryReader({ipcMain, requireSender:requireResourceSender, service:storyService});
+  mainWindow.on('closed', () => storyService.cancel());
+  app.on('before-quit', () => storyService.cancel());
+  const {createBlablaService, registerBlabla} = require('./blablalink.cjs');
+  const blablaService = createBlablaService({BrowserWindow, session, Menu, parent:() => mainWindow, onProgress:state => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('blablalink:progress', state);
+  }});
+  registerBlabla({ipcMain, requireSender:requireResourceSender, service:blablaService});
+  mainWindow.webContents.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => {
+    if (mainFrame && !inPlace) blablaService.cancel();
+  });
+  mainWindow.on('closed', () => blablaService.dispose());
+  app.on('before-quit', () => blablaService.dispose());
   presentSources=require('./source-picker.cjs').createSourcePicker({ipcMain,web:mainWindow.webContents,requireSender:requireResourceSender});
   require('./maanikke.cjs').register({ipcMain,requireSender:requireResourceSender,project:app.isPackaged?path.join(process.resourcesPath,'automation-app'):project,cacheRoot,app});
   mainWindow.webContents.setWindowOpenHandler(({url})=>{if(url==='https://space.bilibili.com/1753455535')require('electron').shell.openExternal(url).catch(error=>log('Author link: '+error.message));return {action:'deny'};});
@@ -116,7 +150,21 @@ app.whenReady().then(async () => {
     if(result.response!==1)return;
     try{writeLocation(storageHome,picked.filePaths[0]);app.relaunch();app.quit()}catch(error){dialog.showErrorBox('未切换数据目录',error.message)}
   }}]:[]),{type:'separator'},{role:'quit',label:'退出'}]},{label:'视图',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'},{role:'toggleDevTools'}]}]));
-  await mainWindow.loadURL('nikke://app/');
+  if(printWindowOnly){
+    mainWindow.on('page-title-updated',event=>{event.preventDefault();mainWindow.setTitle('NIKKE Photos · 备用截图专用测试 · FramePool 已禁用')});
+    log('Capture policy: printwindow-only; FramePool disabled for this session');
+  }
+  await mainWindow.loadURL(printWindowOnly?'nikke://app/#/equipment-collection':'nikke://app/');
+  if(printWindowOnly){
+    for(let attempt=0;attempt<80;attempt++){
+      const ready=await mainWindow.webContents.executeJavaScript("!!document.querySelector('.collection-page') && document.body.innerText.includes('FramePool 已禁用')");
+      if(ready){
+        fs.writeFileSync(path.join(cacheRoot,'printwindow-test-window.json'),JSON.stringify({pid:process.pid,ready:true,capturePolicy:'printwindow-only',framePoolDisabled:true,dataRoot,cacheRoot,url:mainWindow.webContents.getURL(),title:mainWindow.getTitle()},null,2));
+        break;
+      }
+      await new Promise(resolve=>setTimeout(resolve,100));
+    }
+  }
   if(collectionUiCheck) {
     const result=await require('../desktop-scripts/collection-ui-probe.cjs')({window:mainWindow,cacheRoot,ipcMain});
     fs.writeFileSync(path.join(cacheRoot,'collection-ui-result.json'),JSON.stringify(result,null,2));
@@ -130,6 +178,11 @@ app.whenReady().then(async () => {
   if(rerollStrategyCheck) {
     const result=await require('./check-reroll-strategy.cjs')({window:mainWindow,cacheRoot});
     fs.writeFileSync(path.join(cacheRoot,'reroll-strategy-result.json'),JSON.stringify(result,null,2));
+    app.exit(0);return;
+  }
+  if(srCollectionCheck) {
+    const result=await require('./check-sr-collection.cjs')({window:mainWindow,cacheRoot});
+    fs.writeFileSync(path.join(cacheRoot,'sr-collection-result.json'),JSON.stringify(result,null,2));
     app.exit(0);return;
   }
   if(workspaceUiCheck) {

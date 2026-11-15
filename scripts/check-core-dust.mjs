@@ -116,6 +116,6 @@ instance.api.handleKeepLatestChange(true)
 assert.equal(instance.api.selectedEasyMode.value[1], flat.at(-1).id)
 instance.api.latestServer.value = 'cn'
 instance.api.handleLatestServerChange('cn')
-assert.equal(instance.api.selectedEasyMode.value[1], flat.find(c => c.section.startsWith('40-36')).id)
+assert.equal(instance.api.selectedEasyMode.value[1], flat.find(c => c.section.startsWith('42-44')).id)
 for (const [level, dust] of [[204,'39.66'],[214,'40.23'],[542,'71.1'],[641,'77.46'],[659,'78.57']]) assert.equal(outputs[level].core_dust,dust)
 console.log('49/50章选择与恢复、国际服最新50-36、国服独立进度与来源数据修正通过')

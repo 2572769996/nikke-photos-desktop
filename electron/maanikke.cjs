@@ -57,6 +57,7 @@ function createService({project,cacheRoot,screenshotStore=null}){
   current.once('exit',(code,signal)=>{record(`worker exit ${code}/${signal}`);if(child===current){child=null;buffer='';finishScreenshots(true);if(pending){clearTimeout(pending.timer);pending.reject(Error('自动化进程退出，查看错误日志后重新初始化'));pending=null;}}});
  }
  async function request(command,args={}){
+  if(process.env.NIKKE_CAPTURE_POLICY==='printwindow-only'&&command==='inputTest')throw Error('备用专用测试已禁用使用FramePool的旧输入实验');
   if(!COMMANDS.has(command))throw Error('Unsupported MaaNikke command');
   if(pending)throw Error('已有操作正在进行，请等待或停止');
   if(command==='connect'&&(!args||!/^\d{1,20}$/.test(args.hwnd)))throw Error('Invalid window identifier');

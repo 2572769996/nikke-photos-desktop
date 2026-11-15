@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react'
+import {Link} from 'react-router-dom'
 import {localToday,validateRecord,resourceStatistics} from '../../electron/resource-income-model.mjs'
 import '../styles/resourceIncome.css'
 import moduleImage from '../assets/resources/custom-module.png'
@@ -61,6 +62,7 @@ export default function ResourceIncomePage(){
         {!records.length&&<tr><td colSpan="4">{loading?'正在读取…':'暂无收入记录，未记录日期不会自动补零。'}</td></tr>}
       </tbody></table></div>
     </section>
+    <p><Link to="/backups">备份与恢复收入记录</Link></p>
     {path&&<p className="income-storage">正式数据：{path}；每次更新前保留上一版 .bak 文件。可导出 JSON 作为独立备份。本工具记录独立于角色存档。</p>}
   </section>
 }

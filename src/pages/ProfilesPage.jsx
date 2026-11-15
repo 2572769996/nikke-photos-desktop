@@ -1,5 +1,6 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import AccountImportDialog from '../components/AccountImportDialog.jsx'
 import FullyRecordedDialog from '../components/FullyRecordedDialog.jsx'
 import ProfileDialog from '../components/ProfileDialog.jsx'
@@ -72,6 +73,7 @@ const stamp = () => {
 
 /** 存档管理页：概览列表（当前档置顶）+ 新建 / 切换 / 详情编辑 / 删除 / 角色一览 */
 export default function ProfilesPage() {
+  const cnRevision = useCnRosterRevision()
   const navigate = useNavigate()
   const location = useLocation()
   const restored = useRef(loadView())
@@ -154,7 +156,7 @@ export default function ProfilesPage() {
     if (!dialogProfile) return []
     const list = fullyRecordedCodes(dialogProfile.id).map(findCharacter).filter(item => item && CHARACTERS.includes(item))
     return applyFilters(list, { search: view.search, selected: view.selected, toggles: view.toggles })
-  }, [dialogProfile, view.search, view.selected, view.toggles, CHARACTERS])
+  }, [dialogProfile, view.search, view.selected, view.toggles, CHARACTERS, cnRevision])
 
   const activeCount = countActiveFilters(view.selected, view.toggles)
 
@@ -224,6 +226,7 @@ export default function ProfilesPage() {
         </div>
         <div className="head-actions">
           <button type="button" className="btn" onClick={handleExportProfile}>{t('导出当前档案数据')}</button>
+          <Link className="btn" to="/backups">备份与恢复全部档案</Link>
           <button type="button" className="btn" onClick={() => setAccountImport(true)}>{t('导入账号/档案数据')}</button>
           <button type="button" className="btn btn-primary" onClick={openCreate}>{t('新建存档')}</button>
         </div>

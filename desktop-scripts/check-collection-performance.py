@@ -16,6 +16,9 @@ image=np.asarray(Image.open(base/'collection-regression-fixtures/mihara-scroll.p
 service=worker.Service(folder);service.connection={'hwnd':'123'}
 service.windows=lambda:{'windows':[service.connection]};service.controller=Mock(cached_image=image)
 service.controller.post_screencap.return_value.wait.return_value.succeeded=True
+from capture_backend import CaptureBackend
+service.capture_backend=CaptureBackend(lambda _:service.controller,lambda:{'size':(image.shape[1],image.shape[0])},lambda _:True)
+service.capture_backend.connect()
 with patch.object(worker.ctypes,'windll') as win,patch.object(worker,'encode_png',wraps=worker.encode_png) as encode:
     win.user32.IsIconic.return_value=False
     raw=service.capture(export=False);assert encode.call_count==0 and 'image' not in raw

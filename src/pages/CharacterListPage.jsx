@@ -1,3 +1,4 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 import { useEffect, useMemo, useState } from 'react'
 import CharacterGrid from '../components/CharacterGrid.jsx'
 import FilterBar from '../components/FilterBar.jsx'
@@ -30,6 +31,7 @@ const loadFilterState = () => {
 }
 
 export default function CharacterListPage() {
+  const cnRevision = useCnRosterRevision()
   const restored = useMemo(loadFilterState, [])
   const [search, setSearch] = useState(restored?.search ?? '')
   const [selected, setSelected] = useState(restored?.selected ?? NO_SELECTION)
@@ -52,7 +54,7 @@ export default function CharacterListPage() {
 
   const filtered = useMemo(
     () => applyFilters(CHARACTERS, { search, selected, toggles }),
-    [search, selected, toggles, CHARACTERS],
+    [search, selected, toggles, CHARACTERS, cnRevision],
   )
   const activeCount = countActiveFilters(selected, toggles)
   const zoomPreset = ZOOM_PRESETS.find((item) => item.key === zoom) || ZOOM_PRESETS[1]

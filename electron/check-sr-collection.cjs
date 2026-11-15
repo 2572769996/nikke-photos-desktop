@@ -1,0 +1,74 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+module.exports=async function({window:win,cacheRoot}) {
+  const web=win.webContents,host=s=>web.executeJavaScript(s),report={},network=[];let frame;
+  const until=async(fn,label)=>{for(let i=0;i<200;i++){if(await fn())return;await delay(60)}throw Error('Timeout: '+label)};
+  web.session.webRequest.onBeforeRequest({urls:['http://*/*','https://*/*']},(details,callback)=>{network.push(details.url);callback({cancel:true})});
+  const js=s=>frame.executeJavaScript(s);
+  const ready=async()=>{
+    await until(async()=>{frame=web.mainFrame.frames.find(f=>f.url.startsWith('nikke://collection/'));return frame&&await js("!!window.__SR_CALCULATOR__ && document.documentElement.dataset.status==='ready'")},'planner ready');
+    await until(()=>host("!document.querySelector('#panel-sr-collection .tools-status')"),'host ready handshake');
+  };
+  const set=async(id,value)=>js(`(()=>{const e=document.getElementById(${JSON.stringify(id)});e.value=${JSON.stringify(String(value))};e.dispatchEvent(new Event('input',{bubbles:true}));return e.value})()`);
+  const click=id=>js(`document.getElementById(${JSON.stringify(id)}).click()`);
+  const calculate=async()=>{await js('window.__SR_CALCULATOR__.calculate()');await ready()};
+  const capture=async name=>{
+    // Hidden native windows can retain an earlier compositor surface. A viewport
+    // resize requests a fresh frame without displaying the isolated QA window.
+    const [width,height]=win.getSize();win.setSize(width+1,height);await delay(100);win.setSize(width,height);await delay(450);
+    fs.writeFileSync(path.join(cacheRoot,name),(await web.capturePage()).toPNG());
+  };
+  await until(()=>host("!!document.querySelector('.topbar')"),'host mounted');
+  await host("document.querySelector('.cl-mute input')?.click(); document.querySelector('.dlg[aria-label=\"版本更新\"] .dlg-x')?.click(); void 0");
+  await until(()=>host("!document.querySelector('.dlg-mask')"),'initial notice closed');
+  await host("localStorage.setItem('sr-host-sentinel','private'); location.hash='/tools'");
+  await until(()=>host("!!document.querySelector('#tab-sr-collection')"),'new tab');
+  assert.equal(await host("document.querySelectorAll('.tools-switcher [role=tab]').length"),6);
+  await host("document.querySelector('#tab-sr-collection').click()");await ready();
+  assert.equal(await js("document.documentElement.lang"),'zh-CN');
+  assert.match(await js("document.querySelector('.sr-scope-note').textContent"),/仅适用于 SR 收藏品.*保养工具品质/);report.srOnlyScopeExplicit=true;
+  assert.equal(await js("document.querySelector('#stock-r').value"),'6000');
+  assert.equal(await js("document.querySelector('#stock-sr').value"),'2000');
+  assert.equal(await js("document.querySelector('#stock-ssr').value"),'1000');
+  const result=await js("(()=>{const a=window.__SR_CALCULATOR__,i=a.getInputs();return {display:document.querySelector('#capacity-value').textContent,expected:a.solveScenario(i.start,i.target,i.available).unit.toFixed(2),transport:a.diagnostics().transport}})()");
+  assert.equal(result.display,result.expected);assert.equal(result.transport,'worker');report.offlineWorkerMatchesEngine=result;
+  assert.equal(await js("localStorage.getItem('sr-host-sentinel')"),null);
+  assert.equal(await js("typeof window.nikkeDesktop"),'undefined');
+  assert.equal(await js("(()=>{try{void parent.localStorage;return false}catch{return true}})()"),true);report.isolatedOriginAndNoDesktopBridge=true;
+  assert.equal(await js("document.querySelectorAll('.theme-switcher').length"),0);
+  assert.equal(await js("document.querySelector('footer').textContent.includes('2026-07-29')"),true);
+  await capture('planner-light.png');
+  await set('stock-r',727);await set('stock-sr',145);await set('stock-ssr',68);await set('current-level',5);await set('current-exp',0);await set('target-level',15);await calculate();
+  assert.equal(await js("document.querySelector('#capacity-value').textContent"),'2.63');
+  assert.match(await js("document.querySelector('#capacity-note').textContent"),/2 份 SR 收藏品从 5 级升至 15 级.*每次强化后的实际结果/);
+  assert.equal(await js("document.querySelector('.recommend-box > small').textContent"),'当前建议使用：R 级保养工具箱');
+  assert.match(await js("document.querySelector('#recommend-detail').textContent"),/R 100/);
+  assert.match(await js("document.querySelector('#bottleneck-value').textContent"),/受 SR 级保养工具箱.*2.63 份.*5 级升至 15 级/);
+  await capture('planner-copy-light.png');
+  await click('load-example');await ready();
+  assert.match(await js("document.querySelector('#capacity-note').textContent"),/从 0 级升至 15 级/);report.explanatoryCopyAndOriginalNumbers=true;
+  await js("document.querySelector('#actual-material').value='R'");await click('record-normal');await ready();
+  assert.equal(await js("document.querySelector('#stock-r').value"),'5990');assert.equal(await js("document.querySelector('#current-exp').value"),'200');
+  await click('undo');await ready();assert.equal(await js("document.querySelector('#stock-r').value"),'6000');assert.equal(await js("document.querySelector('#current-exp').value"),'0');
+  await js("document.querySelector('#actual-material').value='SR'");await click('record-success');await ready();assert.equal(await js("document.querySelector('#stock-sr').value"),'1990');
+  await click('undo');await ready();report.recordNormalSuperSuccessAndUndo=true;
+  await set('reserve-r',5990);assert.equal(await js("window.__SR_CALCULATOR__.getInputs().available.R"),1);assert.equal(await js("document.documentElement.dataset.status"),'dirty');await calculate();report.reservesAndDirtyResults=true;
+  await click('clear-stock');await ready();assert.equal(await js("window.__SR_CALCULATOR__.getInputs().stock.R"),0);assert.equal(await js("document.querySelector('#capacity-value').textContent.includes('NaN')"),false);
+  await set('current-level',15);await calculate();assert.equal(await js("document.querySelector('#capacity-value').textContent"),'已达成');report.zeroStockAndReachedTarget=true;
+  await click('load-example');await ready();
+  await js("window.__originalWorker=window.Worker;window.Worker=undefined;void 0");await calculate();assert.equal(await js("window.__SR_CALCULATOR__.diagnostics().transport"),'cooperative');await js("window.Worker=window.__originalWorker;void 0");report.workerFallback=true;
+  await js("window.__printed=0;window.print=()=>{window.__printed++};void 0");await click('print-page');await until(()=>js('window.__printed===1'),'print complete report');report.printButtonWaitsForReport=true;
+  await set('stock-r',1234);await js("window.__instance='kept'");
+  await host("document.querySelector('#tab-core-dust').click()");await host("document.querySelector('#tab-sr-collection').click()");assert.equal(await js('window.__instance'),'kept');assert.equal(await js("document.querySelector('#stock-r').value"),'1234');report.tabStatePreserved=true;
+  await host("document.documentElement.dataset.theme='dark'");await delay(300);await ready();assert.equal(await js("document.documentElement.dataset.theme"),'dark');assert.equal(await js("document.querySelector('#stock-r').value"),'1234');await capture('planner-dark.png');report.hostThemePreservesInputs=true;
+  await host("document.querySelector('#panel-sr-collection iframe').style.width='390px'");await delay(100);
+  assert.equal(await js('innerWidth'),390);assert.equal(await js('document.documentElement.scrollWidth>innerWidth'),false);await capture('planner-narrow.png');report.narrowNoOverflow=true;
+  await host("document.querySelector('#panel-sr-collection iframe').style.width='100%'");
+  web.reload();await delay(400);await until(()=>host("!!document.querySelector('#tab-sr-collection')"),'reload tabs');await host("document.querySelector('#tab-sr-collection').click()");await ready();assert.equal(await js("document.querySelector('#stock-r').value"),'1234');report.reloadRestoresInventory=true;
+  // File drops relay to the host's existing import flow, without writing a profile.
+  await js("(()=>{const d=new DataTransfer();d.items.add(new File(['{bad'],'invalid.json',{type:'application/json'}));document.body.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:d}))})()");
+  await until(()=>host("document.querySelector('.drop-toast')?.textContent.includes('JSON')"),'file drop relay');report.fileDropRelayed=true;
+  await host("location.hash='/about'");await until(()=>host("[...document.querySelectorAll('.about-item')].some(e=>e.textContent.includes('SHIKI1255'))"),'about attribution');
+  await host("[...document.querySelectorAll('summary')].find(e=>e.textContent==='收藏品规划器 MIT 许可全文').click()");await until(()=>host("[...document.querySelectorAll('pre')].some(e=>e.textContent.includes('Copyright (c) 2026 SHIKI1255'))"),'offline license');report.offlineAttributionAndLicense=true;
+  assert.equal(await host("localStorage.getItem('sr-host-sentinel')"),'private');assert.deepEqual(network,[]);report.remoteRequests=network;report.gameInputs=0;return report;
+};

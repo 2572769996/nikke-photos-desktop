@@ -279,6 +279,11 @@ export const parseAccountExport = (text) => {
   const remark = ['BlaBlaLink 导入', areaId ? `area ${areaId}` : '', stamp].filter(Boolean).join(' · ')
 
   report.notices = buildNotices(report, synchroLevel)
+  const sourceWarnings = Array.isArray(raw.warnings) ? raw.warnings : []
+  for (const warning of sourceWarnings.slice(0, 50)) {
+    if (typeof warning === 'string' && warning.trim()) report.notices.push(warning.slice(0, 500))
+  }
+  report.notices = [...new Set(report.notices)]
 
   return {
     ok: true,

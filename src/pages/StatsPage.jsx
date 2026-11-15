@@ -6,6 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { toBlob } from 'html-to-image'
 import CardPreviewDialog from '../components/CardPreviewDialog.jsx'
 import EditTableDialog from '../components/EditTableDialog.jsx'
+import IncompleteEquipmentNotice from '../components/IncompleteEquipmentNotice.jsx'
 import ShareCodeDialog from '../components/ShareCodeDialog.jsx'
 import { CHARACTERS, displayName, findCharacter } from '../lib/roster.js'
 import { useProfileData } from '../lib/useProfileData.js'
@@ -281,7 +282,8 @@ export default function StatsPage() {
         ) : (
           <div className="empty">
             <div className="t">{suspended.length ? t('已选角色暂不符合统计条件') : t('暂无角色')}</div>
-            <div>{suspended.length ? t('请补齐四件装备，或选择其他已录齐的角色。') : t('可点击上方「编辑表格角色」进行编辑')}</div>
+            <div>{candidateCharacters.length ? t('可点击上方「编辑表格角色」进行编辑') : t('当前没有四件装备完整的角色')}</div>
+            {!candidateCharacters.length && <IncompleteEquipmentNotice records={records} />}
           </div>
         )}
 
@@ -294,6 +296,7 @@ export default function StatsPage() {
 
       {editOpen ? (
         <EditTableDialog
+          records={records}
           characters={candidateCharacters}
           suspendedCharacters={suspended}
           selectedCodes={selectedCodes}

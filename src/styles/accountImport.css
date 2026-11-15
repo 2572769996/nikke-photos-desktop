@@ -39,3 +39,13 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+.blabla-import {padding:18px;border:1px solid var(--border);border-radius:10px;margin-bottom:20px;background:var(--bg-2)}
+.blabla-import h3 {margin:0 0 8px;font-size:17px}
+.blabla-import>p {margin:8px 0}
+.blabla-actions {display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.blabla-identity {margin-top:14px;padding-top:10px;border-top:1px solid var(--border)}
+.blabla-identity dl {display:flex;flex-wrap:wrap;gap:12px 40px;margin:0 0 14px}
+.blabla-identity dt {font-size:12px;color:var(--text-2)}
+.blabla-identity dd {margin:5px 0;font-weight:600;overflow-wrap:anywhere}
+@media(max-width:500px){.blabla-import{padding:12px}.blabla-actions .btn{width:100%}}

@@ -57,6 +57,7 @@
 import { AFFIX_TIER_VALUES } from '../data/affixTiers.js'
 import { FIELD_RANGES } from './fieldRanges.js'
 import { t, tData } from './i18n.js'
+import { characterNameForCode } from './roster.js'
 import { DEFAULT_SYNCHRO_LEVEL, RESEARCH_CLASSES, RESEARCH_CORPORATIONS } from './profileStore.js'
 
 /** 单次分享的角色上限（协议侧写死，UI 与校验共用） */
@@ -308,11 +309,11 @@ const toWireId = (nameCode) => {
   if (code.startsWith('custom-')) throw new Error('自定义妮姬仅保存在本机，不参与分享')
   if (/^\d+$/.test(code)) {
     const id = Number(code)
-    if (id > WIRE_ID_MAX) throw new Error(`角色号超出协议范围：${code}`)
+    if (id > WIRE_ID_MAX) throw new Error(`${characterNameForCode(code)}无法导出：角色编号超出协议范围`)
     return id
   }
   const sentinel = CHAR_ID_SENTINELS[code]
-  if (sentinel === undefined) throw new Error(`未收录的角色键：${code}`)
+  if (sentinel === undefined) throw new Error(`${characterNameForCode(code)}无法导出：分享协议暂不支持该角色`)
   return sentinel
 }
 

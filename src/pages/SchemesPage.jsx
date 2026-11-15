@@ -1,4 +1,4 @@
-// 方案管理页（「更多」里的入口）：与数据录入页的弹窗共用同一份管理界面，这里不提供「应用」
+// 录入模板页（「更多」里的入口）：与数据录入页的弹窗共用同一份管理界面，这里不提供「应用」
 import { useLocation, useNavigate } from 'react-router-dom'
 import SchemeManager from '../components/SchemeManager.jsx'
 import { t } from '../lib/i18n.js'
@@ -23,8 +23,8 @@ export default function SchemesPage() {
 
       <div className="page-head">
         <div>
-          <h1>{t('方案管理')}</h1>
-          <div className="desc">{t('方案属于当前存档；把方案应用给角色请到「数据录入」页')}</div>
+          <h1>{t('录入模板')}</h1>
+          <div className="desc">录入模板属于当前存档，可在数据录入页应用到角色。</div>
         </div>
       </div>
 

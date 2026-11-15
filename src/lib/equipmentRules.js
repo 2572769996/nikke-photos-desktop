@@ -1,4 +1,5 @@
 // Equipment structure only. Empty equipment is valid; no guessing or data repair.
+import { characterNameForCode } from './roster.js'
 export function equipmentIssue(lines) {
   const rows = Array.from({length:3}, (_,i) => lines?.[i]?.functionType || '')
   if (!rows[0] && rows.slice(1).some(Boolean)) return '第一条词条不能为空；请补齐第一条，或清空本件装备'
@@ -17,7 +18,7 @@ export function assertEquipmentChanges(before = {}, after = {}) {
       const lines = record?.equipments?.[slot]
       if (JSON.stringify(lines) === JSON.stringify(before?.[code]?.equipments?.[slot])) continue
       const issue = equipmentIssue(lines)
-      if (issue) throw Error(`角色${code} · ${['头部','躯干','臂部','腿部'][slot]}：${issue}`)
+      if (issue) throw Error(`${characterNameForCode(code)} · ${['头部','躯干','臂部','腿部'][slot]}：${issue}`)
     }
   }
 }

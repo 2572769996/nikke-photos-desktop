@@ -16,7 +16,7 @@ function createAdminNavigation({project,cacheRoot,run=execute,screenshotStore=nu
   const screenshotTask=screenshotStore?.beginTask();
   let taskFailed=true;
   const file=path.join(folder,'request.json');
-  fs.writeFileSync(file,JSON.stringify({version:1,action:searchTest?'search-mermaid-once':occludedTest?'enter-nikke-occluded-once':'enter-nikke-once',runId,createdAt:Date.now()/1000,ownerPid:process.pid,
+  fs.writeFileSync(file,JSON.stringify({version:1,action:searchTest?'search-mermaid-once':occludedTest?'enter-nikke-occluded-once':'enter-nikke-once',runId,createdAt:Date.now()/1000,ownerPid:process.pid,capturePolicy:process.env.NIKKE_CAPTURE_POLICY==='printwindow-only'?'printwindow-only':'auto',
    target:{hwnd:target.hwnd,pid:target.pid},authorization:'User-triggered single enter-Nikke navigation experiment; human approves Windows UAC'},null,2));
   log(occludedTest?'等待本人确认UAC；通过后保持游戏未最小化，可由其他软件遮挡，15秒后检查并仅点击一次':'等待本人确认UAC；通过后请切回游戏，8秒后检查两帧并仅请求一次点击');
   try{

@@ -4,7 +4,8 @@ import { STAT_NAMES } from './calculator/engine.js'
 import { normalizeCalculationRule } from './calculator/calculationRules.js'
 import { installCharacterImport } from './character-import.js'
 
-export const DRAFT_KEY = 'nikke-tools:workshop:draft:v1'
+import { storageKey } from './calculator-profile.js'
+export const DRAFT_KEY = storageKey('nikke-tools:workshop:draft:v1')
 const MODES = ['single-equipment', 'manual-four-equipment']
 const lines = (value, count) => Array.from({ length: count }, (_, i) => {
   const row = value?.[i]

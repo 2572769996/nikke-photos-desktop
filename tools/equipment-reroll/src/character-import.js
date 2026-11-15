@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Explicit, one-shot host transfer. No host storage access or solver changes.
 import { STAT_NAMES } from './calculator/engine.js'
+import { storageKey } from './calculator-profile.js'
 export function validateEquipmentImport(payload) {
   if(payload?.version!==1 || !Array.isArray(payload.equipments) || payload.equipments.length!==4)throw Error('导入的装备数量无效')
   return payload.equipments.map(rows=>{
@@ -17,10 +18,22 @@ export function validateEquipmentImport(payload) {
 }
 export function installCharacterImport(api,capture) {
   const button=document.querySelector('#import-completed-character'),status=document.querySelector('#import-character-status')
+  const summary=document.createElement('div');summary.className='desktop-import-summary';summary.hidden=true
+  const portrait=document.createElement('img');portrait.alt='';portrait.hidden=true
+  summary.append(portrait,status);document.querySelector('.topbar-primary').before(summary)
+  const IMPORT_KEY=storageKey('nikke-tools:workshop:imported:v1')
+  const validAvatar=data=>typeof data==='string'&&data.length<150000&&/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(data)
+  function showSource(source){
+    status.textContent=`已导入 ${source.name} 的四件装备。请确认目标条件后重新计算。`
+    portrait.hidden=!validAvatar(source.avatarData)
+    if(!portrait.hidden)portrait.src=source.avatarData;else portrait.removeAttribute('src')
+  }
+  try{const source=JSON.parse(localStorage.getItem(IMPORT_KEY)||'null');if(source&&typeof source.name==='string')showSource(source)}catch{}
+  portrait.addEventListener('error',()=>{portrait.hidden=true})
   const hostOrigin=location.protocol==='nikke:'?'nikke://app':location.origin
   let pending=null
   const available=()=>api.collectionSelect.value==='manual-four-equipment' && api.app.getAttribute('aria-busy')!=='true'
-  const sync=()=>{button.hidden=parent===window || api.collectionSelect.value!=='manual-four-equipment';button.disabled=!available() || !!pending}
+  const sync=()=>{button.hidden=parent===window || api.collectionSelect.value!=='manual-four-equipment';button.disabled=!available() || !!pending;summary.hidden=api.collectionSelect.value!=='manual-four-equipment'||!status.textContent}
   api.collectionSelect.addEventListener('change',()=>queueMicrotask(sync))
   new MutationObserver(sync).observe(api.app,{attributes:true,attributeFilter:['aria-busy']})
   button.addEventListener('click',()=>{
@@ -31,7 +44,7 @@ export function installCharacterImport(api,capture) {
   window.addEventListener('message',event=>{
     if(event.source!==parent || event.origin!==hostOrigin || event.data?.type!=='nikke-reroll:import-result' || !pending || event.data.requestId!==pending)return
     pending=null;sync()
-    if(event.data.canceled){status.textContent='已取消导入，当前盘面保持不变。';return}
+    if(event.data.canceled){status.textContent='已取消导入，当前盘面保持不变。';portrait.hidden=true;sync();return}
     try {
       if(!available())throw Error('当前计算模式或运行状态已变化，请重新导入')
       const equipments=validateEquipmentImport(event.data.payload)
@@ -43,8 +56,11 @@ export function installCharacterImport(api,capture) {
       })
       api.clearImportedOutputs();capture()
       const name=typeof event.data.payload.name==='string'?event.data.payload.name.slice(0,120):'所选角色'
-      status.textContent=`已导入 ${name} 的四件装备。请确认目标条件后重新计算。`
-    } catch(error){status.textContent=`导入失败：${error.message}`}
+      const source={name,avatarData:validAvatar(event.data.payload.avatarData)?event.data.payload.avatarData:''}
+      showSource(source)
+      try{localStorage.setItem(IMPORT_KEY,JSON.stringify(source))}catch{}
+    } catch(error){status.textContent=`导入失败：${error.message}`;portrait.hidden=true}
+    sync()
   })
   sync()
 }

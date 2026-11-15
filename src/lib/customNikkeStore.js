@@ -112,3 +112,72 @@ export async function setCustomNikkeDeleted(record, deleted) {
   records = next; emit(); channel?.postMessage('changed')
   return updated
 }
+
+export async function exportCustomBackup() {
+  await initializeCustomNikkes()
+  const items = await Promise.all(records.map(async record => {
+    const item = { ...record }
+    for (const key of ['avatarImage', 'artworkImage']) {
+      if (!record[key]) continue
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(record[key].blob)
+      })
+      const { blob, ...metadata } = record[key]
+      item[key] = { ...metadata, data }
+    }
+    return item
+  }))
+  return { format: 'nikke-photos-custom-backup', version: 1, items }
+}
+
+export async function prepareCustomBackup(file) {
+  if (file?.format !== 'nikke-photos-custom-backup' || file.version !== 1 || !Array.isArray(file.items)) throw Error('请选择自定义角色备份文件')
+  const ids = new Set()
+  return Promise.all(file.items.map(async input => {
+    if (ids.has(input.id)) throw Error('备份包含重复角色身份')
+    ids.add(input.id)
+    const record = { ...input }
+    for (const key of ['avatarImage', 'artworkImage']) {
+      if (!input[key]) continue
+      const match = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(input[key].data)
+      if (!match || match[2].length > Math.ceil(CUSTOM_IMAGE_LIMIT / 3) * 4) throw Error('备份中的角色图片无效或超过10 MB')
+      const bytes = Uint8Array.from(atob(match[2]), character => character.charCodeAt(0))
+      record[key] = await readCustomImage(new File([bytes], input[key].name || '角色图片', { type: match[1] }))
+    }
+    return normalizeCustomRecord(record)
+  }))
+}
+
+export async function restoreCustomBackup(file) {
+  const incoming = await prepareCustomBackup(file)
+  const db = await openDatabase()
+  let next
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction('characters', 'readwrite')
+    const store = tx.objectStore('characters')
+    const request = store.getAll()
+    let failure
+    request.onsuccess = () => {
+      try {
+        const merged = new Map(request.result.map(item => [item.id, item]))
+        for (const item of incoming) merged.set(item.id, item)
+        next = [...merged.values()].map(normalizeCustomRecord)
+        const builtInNames = new Set(roster.characters.map(item => nameKey(item.nameCn)))
+        for (const item of incoming.filter(item => !item.deletedAt)) {
+          const name = nameKey(item.nameCn)
+          if (builtInNames.has(name) || next.some(existing => existing.id !== item.id && !existing.deletedAt && nameKey(existing.nameCn) === name)) {
+            throw Error(`角色名称冲突“${item.nameCn}”，请先修改同名角色后恢复`)
+          }
+        }
+        for (const item of incoming) store.put(item)
+      } catch (error) { failure = error; tx.abort() }
+    }
+    tx.oncomplete = resolve
+    tx.onerror = tx.onabort = () => reject(failure || tx.error || Error('角色库恢复失败'))
+  })
+  records = next; loaded = true; failure = ''; emit(); channel?.postMessage('changed')
+  return incoming.length
+}

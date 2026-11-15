@@ -362,8 +362,9 @@ const applyStylePrior = (ranked, valueStyle) => ranked
  * 数值模板匹配主流程
  *
  * 先试 `glyph-sequence`（单字符模板拼串，在截图与素材字形高度一致时最可靠），
- * 证据不足时回退 `full-value`；仍不足时保守检查 `segmented-glyph`，不合格返回 null。
- * ——此时名称已知但值留空，交由裁决层标 `needsConfirm`。
+ * 证据不足时回退 `full-value`；仍不足时保守检查 `segmented-glyph`。
+ * 默认不合格返回 null；includeCandidate 时额外提供排名最近的合法数值候选，
+ * 仅供人工核对，不降低任何正式通过阈值。
  *
  * @param {{data,width,height}} observed 观测掩码（valueMaskFromRegion 的产物）
  * @param {string} functionType 名称识别给出的词条类型
@@ -377,6 +378,7 @@ const applyStylePrior = (ranked, valueStyle) => ranked
 export const matchEquipmentValueTemplate = async (observed, functionType, {
   valueStyle = '',
   debug = false,
+  includeCandidate = false,
   loadFullTemplate,
   loadGlyph,
 } = {}) => {
@@ -386,6 +388,7 @@ export const matchEquipmentValueTemplate = async (observed, functionType, {
   // 极小碎片不能交给容错膨胀，否则 ±2px 会将其误判为完全重合。
   // 不以段数拒绝整串路径：真实蓝字抗锯齿可能把相邻字符连在一起。
   if (observed.width < 5 || observed.height < 3) return null
+  if (!observed.data.some(pixel=>pixel>0)) return null
 
   // 按 Q18：不按样式过滤候选，只记下样式供 P6 做排序加权 / 冲突标记
   const levels = legal.map((_, index) => index + 1)
@@ -454,6 +457,15 @@ export const matchEquipmentValueTemplate = async (observed, functionType, {
       }
     }
   }
+  // Keep the accepted thresholds intact. A rejected but ranked shape can still
+  // provide a legal nearest-value suggestion for explicit human confirmation.
+  const alternatives = [
+    glyphBest && { ...glyphBest, method:'glyph-sequence', margin:glyphMargin },
+    fullOrdered?.[0] && { ...fullOrdered[0], method:'full-value', margin:(fullOrdered[1]?.rankScore??1)-fullOrdered[0].rankScore },
+  ].filter(item=>item&&Number.isFinite(item.rankScore)&&Number.isFinite(item.score))
+    .sort((a,b)=>a.rankScore-b.rankScore)
+  const nearest = !best ? alternatives[0] : null
+  const candidate = nearest ? {level:nearest.level,value:nearest.value,score:nearest.score,margin:nearest.margin,method:nearest.method} : null
   const summary = {
     level: best?.level ?? null,
     value: best?.value ?? null,
@@ -462,8 +474,9 @@ export const matchEquipmentValueTemplate = async (observed, functionType, {
     method,
     confidence: best ? (margin >= VALUE_MATCH_TUNING.highConfidenceMargin ? 'high' : 'medium') : null,
     valueStyle: effectiveStyle,
+    ...(includeCandidate && candidate ? {candidate} : {}),
   }
-  if (!debug) return best ? summary : null
+  if (!debug) return best || (includeCandidate && candidate) ? summary : null
   // 诊断出口：把两条路的排名与观测掩码尺寸一并带出，便于定位是哪一环失手
   return {
     ...summary,

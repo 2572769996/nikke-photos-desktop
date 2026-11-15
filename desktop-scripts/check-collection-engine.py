@@ -45,11 +45,11 @@ class FakePages:
         return {'hit':hit,'box':box}
     def ocr(self,roi,expected='.+'):
         hit=False;box=[0,0,10,10]
-        if roi==[735,286,375,58]:hit=self.s.expanded and not self.s.query if expected=='搜索妮姬的名字' else bool(re.search(expected,self.s.query));box=[850,301,160,28]
+        if roi in ([735,286,375,58],[735,286,330,58]):hit=self.s.expanded and not self.s.query if expected=='搜索妮姬的名字' else bool(re.search(expected,self.s.query));box=[850,301,160,28]
         elif expected=='^大厅$':hit=self.s.page=='list';box=[942,1025,40,25]
         elif expected=='^妮姬$':hit=self.s.page=='hall';box=[725,1024,45,28]
         elif expected=='返回':hit=self.s.page=='detail';box=[65,1006,45,28]
-        return {'hit':hit,'box':box,'detail':{'filtered':[]}}
+        return {'hit':hit,'box':box,'detail':{'filtered':[{'text':self.s.query}] if hit and roi==[735,286,330,58] else []}}
     texts=staticmethod(lambda result:[])
 class TestCollector(engine.Collector):
     def __init__(self,request,folder):super().__init__(request,folder,FakeService,FakePages,lambda:True);self.events=[];self.wait_calls=[]

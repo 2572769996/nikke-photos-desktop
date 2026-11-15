@@ -1,4 +1,4 @@
-// 方案管理弹窗：数据录入页里打开（带「应用至当前角色」）；「更多」页用的是独立页面 SchemesPage
+// 录入模板弹窗：数据录入页里打开（带「应用至当前角色」）；「更多」页用的是独立页面 SchemesPage
 import { useEffect } from 'react'
 import SchemeManager from './SchemeManager.jsx'
 import { t } from '../lib/i18n.js'
@@ -19,9 +19,9 @@ export default function SchemeDialog({ targetName, onApply, onClose }) {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="dlg dlg-scheme" role="dialog" aria-label={t('方案管理')}>
+      <div className="dlg dlg-scheme" role="dialog" aria-label={t('录入模板')}>
         <div className="dlg-head">
-          <h2>{t('方案管理')}</h2>
+          <h2>{t('录入模板')}</h2>
           <button type="button" className="dlg-x" onClick={onClose} aria-label={t('关闭')}>×</button>
         </div>
 

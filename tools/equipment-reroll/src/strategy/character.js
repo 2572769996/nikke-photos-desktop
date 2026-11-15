@@ -9,17 +9,21 @@ export const CHARACTER_NOTE = '近似结果：zbx 角色级候选分配，不是
 export function prepareCharacter(input) {
   if (input.scope !== 'character' || input.strategy !== 'zbx-keys') throw new Error('四装备增强模式必须使用自订秘钥策略')
   if (!Array.isArray(input.equipments) || input.equipments.length !== 4) throw new Error('必须提供四件装备')
-  if (!Array.isArray(input.characterTargets) || input.characterTargets.length < 1 || input.characterTargets.length > 3) throw new Error('zbx 四装备只支持 1～3 个全部达成目标；不支持候选选 3、合并目标或 Workshop 全局条件')
+  if (!Array.isArray(input.characterTargets) || input.characterTargets.length < 1 || input.characterTargets.length > 6) throw new Error('zbx 四装备支持 1～6 个全部达成目标；不支持候选选 3、合并目标或 Workshop 全局条件')
   const targets = structuredClone(input.characterTargets)
   if (new Set(targets.map(t => t.stat)).size !== targets.length) throw new Error('角色目标词条不能重复')
   for (const t of targets) if (!Number.isInteger(t.totalTier) || t.totalTier < 1 || t.totalTier > 60) throw new Error('角色目标总档位必须为 1～60 的整数')
-  const settings = prepareSettings({...input, scope:'single', targetInput:targets.map(t => ({stat:t.stat,tier:1,flagged:true}))})
+  // Validate each independent target; a character can distribute six goals over
+  // four gears, but no single gear may carry more than three. Do not feed the
+  // character's complete goal list to the single-gear feasibility validator.
+  const targetSettings = targets.map(t => prepareSettings({...input, scope:'single', targetInput:[{stat:t.stat,tier:1,flagged:true}]}))
+  const settings = targetSettings[0]
   const current = input.equipments.map(e => {
     if (e.skipped) throw new Error('zbx 角色求解不支持“不跑”约束，请取消勾选或使用 Workshop')
     checkBoard(e.initialInput, settings)
     return encodeZbx(e.initialInput, settings).current
   }).join('/')
-  const target = targets.map(t => encodeZbx(input.equipments[0].initialInput, {...settings,targets:[{stat:t.stat,tier:t.totalTier}]}).target).join(',')
+  const target = targets.map((t,i) => encodeZbx(input.equipments[0].initialInput, {...targetSettings[i],targets:[{stat:t.stat,tier:t.totalTier}]}).target).join(',')
   return {settings:{...settings,scope:'character',characterTargets:targets},current,target}
 }
 

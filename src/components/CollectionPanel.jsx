@@ -9,8 +9,6 @@ import CollectionResults from './CollectionResults.jsx'
 import {pinyin} from 'pinyin-pro'
 
 const slots=[['head','头部'],['chest','胸甲'],['hands','手部'],['legs','腿部']]
-const collectionCharacters=BUILTIN_CHARACTERS.filter(isCnCharacter)
-const collectionCodes=new Set(collectionCharacters.map(c=>c.nameCode))
 const byCode=new Map(BUILTIN_CHARACTERS.map(c=>[c.nameCode,c]))
 const fullPinyin=new Map(BUILTIN_CHARACTERS.map(c=>[c.nameCode,pinyin(c.nameCn,{toneType:'none'}).replace(/\s+/g,'').toLowerCase()]))
 function CollectionRoleIcons({character}) {
@@ -26,6 +24,8 @@ const duration=ms=>{const s=Math.max(0,Math.floor(ms/1000));return `${Math.floor
 const rowText=row=>row.status==='empty'?emptyLabel[row.reason]||'空词条':row.status==='ok'?`${row.name} ${Number(row.value).toFixed(2)}%`:'未识别，待核对'
 
 export default function CollectionPanel({bridge,disabled,hwnd,onActive,includeScreenshots=false}){
+ const collectionCharacters=BUILTIN_CHARACTERS.filter(isCnCharacter)
+ const collectionCodes=new Set(collectionCharacters.map(c=>c.nameCode))
  const [tab,setTab]=useState('select'),[query,setQuery]=useState(''),[selected,setSelected]=useState({}),[toggles,setToggles]=useState({collectible:false,overSpec:false}),[onlySelected,setOnlySelected]=useState(false)
  const [codes,setCodes]=useState([]),[status,setStatus]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[ready,setReady]=useState(false)
  const [keys,setKeys]=useState({pause:'F8',stop:'F9'}),[now,setNow]=useState(Date.now()),[resultFilter,setResultFilter]=useState('all'),[saveNote,setSaveNote]=useState(''),[archiveNotice,setArchiveNotice]=useState('')
@@ -125,7 +125,7 @@ export default function CollectionPanel({bridge,disabled,hwnd,onActive,includeSc
    <section className="maa-card"><div className="collection-progress-heading"><div><h3>{statusText}</h3><p>{currentName?`当前角色：${currentName}`:'启动后会先确认游戏处于大厅。'}{status?.returnedToLobby?' · 已返回大厅':''}</p></div><span>{status?.createdAt?duration((active?now:status.finishedAt||now)-status.createdAt):'尚未开始'}</span></div>
     <progress aria-label="采集总进度" max="100" value={percentage}/><div className="collection-metrics"><div><strong>{finished} / {total}</strong><span>已处理角色</span></div><div><strong>{complete}</strong><span>完成</span></div><div><strong>{skipped.length}</strong><span>跳过</span></div><div><strong>{equipmentCount}</strong><span>已截图部位</span></div><div><strong>{unread.length}</strong><span>待核对词条</span></div></div>
     {status?.pendingOCR>0&&<p role="status">后台待识别 {status.pendingOCR} 件装备{status.returnedToLobby?'，游戏操作已结束，正在保存结果':'，游戏截图继续进行'}。</p>}
-    <div role="status" className="maa-collection-status">{statusText} · 已完成 {complete} / {total} · 跳过 {skipped.length}{status?.returnedToLobby?' · 已返回大厅':''}</div>
+     <div role="status" className="maa-collection-status">{statusText} · 已完成 {complete} / {total} · 跳过 {skipped.length}{status?.returnedToLobby?' · 已返回大厅':''}{status?.progress?.captureBackend?` · 截图：${status.progress.captureBackend==='PrintWindow'?'PrintWindow / GDI（备用）':status.progress.captureBackend}`:''}</div>
     <div className="maa-actions"><button disabled={!active||busy||status?.stage==='recognizing'} onClick={()=>act('collectionPause')}>{status?.paused?'继续采集':'暂停采集'}</button><button className="collection-stop" disabled={!active||busy} onClick={()=>act('collectionCancel')}>停止采集并保存进度</button><span className="collection-muted">{status?.keys?.pause||keys.pause} 暂停 / 继续 · {status?.keys?.stop||keys.stop} 停止</span></div>
     <ol className="collection-task-queue" aria-label="任务角色进度">{(status?.nameCodes||[]).map(code=>{const entry=status.draft?.[code];return <li key={code} data-state={entry?.status||'pending'}><span>{byCode.get(code)?.nameCn}</span><span>{stateLabel[entry?.status]||'等待采集'}{entry?.status==='collecting'?` · ${Object.keys(entry.equipment||{}).length}/4`:''}</span></li>})}</ol>
    </section><section className="maa-card"><h3>任务日志</h3><pre aria-label="采集任务日志">{status?.logs?.join('\n')||'暂无任务日志'}</pre><p>暂停与停止会保留进度。恢复时重新核对页面、角色和装备部位。</p></section>

@@ -92,9 +92,11 @@ export const adjudicateRow = async ({
   // `暴击率增加 2.98%` 改成了 `命中率增加 6.88%`。反过来，精确命中（近乎逐像素）的强证据
   // 值得翻盘，所以不取消 walk，只提高它的入场门槛。
   let picked = null
+  let nearestValue = null
   for (let index = 0; index < ranked.length; index += 1) {
     const candidate = ranked[index]
     const match = await matchValue(candidate.functionType)
+    if(index===0)nearestValue=match?.candidate??null
     if (!match?.method) continue
     if (index > 0 && match.score > ADJUDICATE_TUNING.valueExactScore) continue
     picked = { ...match, functionType: candidate.functionType, nameScore: candidate.score, nameRank: index + 1 }
@@ -102,9 +104,8 @@ export const adjudicateRow = async ({
   }
 
   if (!picked) {
-    // 名称有排名、值却没有一条能站住：**报第 1 名名称 + 值留空**，而不是丢掉名称。
-    // 名称模板路在这个样本集上是 55/55，它的排序本身是证据；输出空名称等于把这份证据扔掉，
-    // 让用户从零开始选。
+    // Rejected confidence does not discard the best legal numeric candidate.
+    // It remains unknown/low-confidence and cannot be written without approval.
     const bestName = ranked[0] ?? null
     return {
       position,
@@ -112,16 +113,17 @@ export const adjudicateRow = async ({
       empty: false,
       name: bestName ? (FUNCTION_LABELS[bestName.functionType] ?? null) : null,
       functionType: bestName?.functionType ?? null,
-      value: null,
-      tier: null,
+      value: nearestValue?.value ?? null,
+      tier: nearestValue?.level ?? null,
       confidence: 'low',
       snapped: false,
       snapReason: 'none',
       needsConfirm: true,
       flags: ['VALUE_LOW_CONFIDENCE', ...emptyFlags],
-      method: null,
+      method: nearestValue ? 'value-candidate' : null,
       engine: 'v2',
-      evidence: { nameRank: null, nameScore: bestName?.score ?? 0, nameMargin, valueStyle, darkRow },
+      evidence: { nameRank: null, nameScore: bestName?.score ?? 0, nameMargin, valueStyle, darkRow,
+        valueCandidate:nearestValue, valueSuggested:!!nearestValue },
     }
   }
 

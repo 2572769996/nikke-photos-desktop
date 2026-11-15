@@ -26,5 +26,6 @@ export function createResourceIncomeStore(dataRoot) {
     upsert(input){const row=validateRecord(input),doc=read();doc.records=doc.records.filter(r=>r.date!==row.date);doc.records.push(row);return write(validateDocument(doc))},
     remove(date){validateRecord({date,stones:0});const doc=read();doc.records=doc.records.filter(r=>r.date!==date);return write(doc)},
     backupJSON(){return JSON.stringify(read(),null,2)+'\n'},
+    restore(input){return write(validateDocument(input))},
   }
 }

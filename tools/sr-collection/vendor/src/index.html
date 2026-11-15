@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="{{locale}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="{{metaDescription}}">
+  <title>{{pageTitle}}</title>
+  <script>
+/* @inline theme-init */
+  </script>
+  <style>
+/* @inline styles */
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <div class="hero-topline">
+          <p class="eyebrow">{{eyebrow}}</p>
+          <div class="theme-switcher" role="group" aria-label="{{themeLabel}}" data-testid="theme-switcher">
+            <button class="theme-option" type="button" data-theme-mode="auto" aria-pressed="true">{{themeAuto}}</button>
+            <button class="theme-option" type="button" data-theme-mode="light" aria-pressed="false">{{themeLight}}</button>
+            <button class="theme-option" type="button" data-theme-mode="dark" aria-pressed="false">{{themeDark}}</button>
+          </div>
+        </div>
+        <h1>{{heroTitle}}</h1>
+        <p class="hero-copy">{{heroCopy}}</p>
+      </div>
+    </header>
+
+    <div class="notice">
+      <span class="notice-icon" aria-hidden="true">!</span>
+      <span><b>{{noticeEmphasis}}</b>{{noticeDetail}}</span>
+    </div>
+
+    <p class="print-warning" role="status">{{printWarning}}</p>
+
+    <section class="print-summary" aria-label="{{printSummaryLabel}}">
+      <h2>{{printSummaryTitle}}</h2>
+      <div class="print-summary-grid">
+        <div><span>{{currentStateLabel}}</span><strong id="print-current-state">{{defaultCurrentState}}</strong></div>
+        <div><span>{{targetLabel}}</span><strong id="print-target-level">{{defaultTarget}}</strong></div>
+        <div><span>{{inventoryLabel}}</span><strong id="print-stock">{{defaultStock}}</strong></div>
+        <div><span>{{reserveLabel}}</span><strong id="print-reserve">{{defaultReserve}}</strong></div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="left-column">
+        <article class="panel">
+          <header class="panel-header">
+            <div>
+              <h2>{{inventoryHeading}}</h2>
+              <p>{{inventoryCopy}}</p>
+            </div>
+          </header>
+          <div class="panel-body">
+            <div class="inventory-grid">
+              <div class="inventory-card r">
+                <label for="stock-r"><span class="material-pill">R</span><span>{{stockLabel}}</span></label>
+                <input id="stock-r" data-testid="stock-r" type="number" min="0" max="999999" step="1" inputmode="numeric" value="{{stockR}}" aria-describedby="groups-r">
+                <div class="input-hint" id="groups-r">{{defaultGroupsR}}</div>
+              </div>
+              <div class="inventory-card sr">
+                <label for="stock-sr"><span class="material-pill">SR</span><span>{{stockLabel}}</span></label>
+                <input id="stock-sr" data-testid="stock-sr" type="number" min="0" max="999999" step="1" inputmode="numeric" value="{{stockSR}}" aria-describedby="groups-sr">
+                <div class="input-hint" id="groups-sr">{{defaultGroupsSR}}</div>
+              </div>
+              <div class="inventory-card ssr">
+                <label for="stock-ssr"><span class="material-pill">SSR</span><span>{{stockLabel}}</span></label>
+                <input id="stock-ssr" data-testid="stock-ssr" type="number" min="0" max="999999" step="1" inputmode="numeric" value="{{stockSSR}}" aria-describedby="groups-ssr">
+                <div class="input-hint" id="groups-ssr">{{defaultGroupsSSR}}</div>
+              </div>
+            </div>
+
+            <div class="form-divider"></div>
+
+            <div class="state-grid">
+              <div class="field">
+                <label for="current-level">{{currentLevelLabel}}</label>
+                <input id="current-level" data-testid="current-level" type="number" min="0" max="{{maxLevel}}" step="1" value="{{initialLevel}}">
+              </div>
+              <div class="field">
+                <label for="current-exp">{{currentExpLabel}}</label>
+                <input id="current-exp" data-testid="current-exp" type="number" min="0" max="{{maxExp}}" step="{{expStep}}" value="{{initialExp}}">
+              </div>
+              <div class="field">
+                <label for="target-level">{{targetLevelLabel}}</label>
+                <select id="target-level" data-testid="target-level">
+<!-- @inline targets -->
+                </select>
+              </div>
+            </div>
+
+            <details class="advanced">
+              <summary>{{advancedSummary}}</summary>
+              <div class="reserve-grid">
+                <label>{{reserveR}}<input id="reserve-r" type="number" min="0" step="1" inputmode="numeric" value="{{reserveR}}"></label>
+                <label>{{reserveSR}}<input id="reserve-sr" type="number" min="0" step="1" inputmode="numeric" value="{{reserveSR}}"></label>
+                <label>{{reserveSSR}}<input id="reserve-ssr" type="number" min="0" step="1" inputmode="numeric" value="{{reserveSSR}}"></label>
+              </div>
+            </details>
+
+            <div class="quick-actions">
+              <button class="button secondary" type="button" id="load-example">{{loadExample}}</button>
+              <button class="button secondary" type="button" id="clear-stock">{{clearStock}}</button>
+            </div>
+
+            <button class="button primary" data-testid="calculate" type="button" id="calculate">{{calculate}}</button>
+          </div>
+        </article>
+      </div>
+
+      <div class="right-column">
+        <section class="status-panel" aria-live="polite">
+          <div class="status-top">
+            <div>
+              <p class="status-label">{{capacityLabel}}</p>
+              <p class="capacity"><strong id="capacity-value" data-testid="capacity-value">—</strong><span id="capacity-unit">{{capacityUnit}}</span></p>
+              <p class="capacity-note" id="capacity-note">{{capacityWaiting}}</p>
+            </div>
+            <div class="recommend-box">
+              <small>{{recommendLabel}}</small>
+              <div class="recommend-main">
+                <div class="recommend-material" id="recommend-material" data-testid="recommend-material">—</div>
+                <div class="recommend-detail" id="recommend-detail">{{recommendWaiting}}</div>
+              </div>
+            </div>
+          </div>
+          <div class="progress-line" id="progress-line">
+            <span class="spinner"></span>
+            <span id="progress-text">{{progressInitial}}</span>
+          </div>
+        </section>
+
+        <article class="panel">
+          <header class="panel-header">
+            <div>
+              <h2>{{consumptionHeading}}</h2>
+              <p>{{consumptionCopy}}</p>
+            </div>
+            <button class="button secondary" type="button" id="print-page">{{printButton}}</button>
+          </header>
+          <div class="panel-body">
+            <div class="result-grid" id="usage-grid">
+              <div class="usage-card r" data-material="R">
+                <div class="usage-head"><b>R</b><strong id="usage-r">—</strong></div>
+                <div class="usage-meta" id="usage-meta-r">{{waiting}}</div>
+                <div class="meter"><i id="meter-r"></i></div>
+              </div>
+              <div class="usage-card sr" data-material="SR">
+                <div class="usage-head"><b>SR</b><strong id="usage-sr">—</strong></div>
+                <div class="usage-meta" id="usage-meta-sr">{{waiting}}</div>
+                <div class="meter"><i id="meter-sr"></i></div>
+              </div>
+              <div class="usage-card ssr" data-material="SSR">
+                <div class="usage-head"><b>SSR</b><strong id="usage-ssr">—</strong></div>
+                <div class="usage-meta" id="usage-meta-ssr">{{waiting}}</div>
+                <div class="meter"><i id="meter-ssr"></i></div>
+              </div>
+            </div>
+            <div class="bottleneck">
+              <span>{{bottleneckLabel}}</span>
+              <strong id="bottleneck-value">—</strong>
+              <span id="whole-completions">{{wholeInitial}}</span>
+            </div>
+            <div class="shortage-alert" id="shortage-alert"></div>
+          </div>
+        </article>
+
+        <article class="panel execution-panel">
+          <header class="panel-header">
+            <div>
+              <h2>{{recordHeading}}</h2>
+              <p>{{recordCopy}}</p>
+            </div>
+          </header>
+          <div class="panel-body">
+            <div class="execution-grid">
+              <div class="field">
+                <label for="actual-material">{{actualMaterialLabel}}</label>
+                <select id="actual-material" data-testid="actual-material">
+                  <option value="R">R</option>
+                  <option value="SR">SR</option>
+                  <option value="SSR">SSR</option>
+                </select>
+              </div>
+              <button class="button soft-neutral" type="button" id="record-normal">{{recordNormal}}</button>
+              <button class="button soft-green" type="button" id="record-success">{{recordSuccess}}</button>
+              <button class="button secondary" type="button" id="undo" disabled>{{undo}}</button>
+            </div>
+            <div class="history-list" id="history-list">
+              <div class="history-empty">{{historyEmpty}}</div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel policy-panel">
+      <header class="panel-header policy-toolbar">
+        <div>
+          <h2>{{policyHeading}}</h2>
+          <p>{{policyCopy}}</p>
+        </div>
+        <div class="legend" aria-label="{{legendLabel}}">
+          <span class="legend-item"><span data-legend-mark="circle"></span>{{markPrimary}}</span>
+          <span class="legend-item"><span data-legend-mark="triangle"></span>{{markMixed}}</span>
+          <span class="legend-item"><span data-legend-mark="cross"></span>{{markAvoid}}</span>
+        </div>
+      </header>
+      <div class="policy-tables" id="policy-tables" data-testid="policy-tables" data-stage-count="3">
+        <div class="table-wrap"><div class="table-empty">{{waiting}}</div></div>
+        <div class="table-wrap"><div class="table-empty">{{waiting}}</div></div>
+        <div class="table-wrap"><div class="table-empty">{{waiting}}</div></div>
+      </div>
+    </section>
+
+    <section class="method-panel">
+      <details>
+        <summary>{{methodSummary}}</summary>
+        <div class="method-copy">
+          <div class="method-card"><b>{{methodScopeTitle}}</b>{{methodScopeText}}</div>
+          <div class="method-card"><b>{{methodMeaningTitle}}</b>{{methodMeaningText}}</div>
+          <div class="method-card"><b>{{methodExecutionTitle}}</b>{{methodExecutionText}}</div>
+        </div>
+      </details>
+    </section>
+
+    <footer class="page-footer">
+      <span>{{footerDisclaimer}}</span>
+      <span class="footer-credit">{{dataBaseline}}{{verifiedAt}}{{footerSeparator}}{{creatorPrefix}}<a href="{{creatorProfile}}" rel="author">{{creatorName}}</a>{{creatorSuffix}}</span>
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+/* @inline app */
+  </script>
+</body>
+</html>

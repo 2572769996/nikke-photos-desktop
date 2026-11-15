@@ -24,7 +24,7 @@ module.exports=async function({window:win,cacheRoot}){
   await until(async()=>{frame=web.mainFrame.frames.find(f=>f.url.startsWith('nikke://reroll/equipment-reroll/index.html'));return frame},'frame');
   const js=code=>frame.executeJavaScript(code);
   await until(()=>js("!!document.querySelector('#import-completed-character')"),'import installed');
-  await until(()=>js("!!document.querySelector('.expectation-outline')"),'calculator initialization completed');
+  await until(()=>js("document.documentElement.dataset.calculatorReady==='true'"),'calculator initialization completed');
   report.boundary=await js("(()=>{let isolated=false;try{void parent.localStorage.length}catch{isolated=true}return {isolated,bridge:typeof window.nikkeDesktop}})()");assert.ok(report.boundary.isolated);assert.equal(report.boundary.bridge,'undefined');
   const select=async(id,value)=>{await js(`(()=>{const e=document.querySelector('${id}');e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('change',{bubbles:true}))})()`);await delay(20)};
   await select('#collection-select','single-equipment');assert.equal(await js("document.querySelector('#import-completed-character').hidden"),true);
@@ -45,6 +45,11 @@ module.exports=async function({window:win,cacheRoot}){
   const rule=await js("document.querySelector('#calculation-rule').value"),conditions=await js("[...document.querySelectorAll('.global-condition-row')].map(c=>[...c.querySelectorAll('select,input')].map(e=>e.value))");
   await host("document.querySelector('#panel-equipment-reroll iframe').contentWindow.postMessage({type:'nikke-reroll:import-result',requestId:'wrong-nonce',payload:{version:1,equipments:[]}},'nikke://reroll')");await delay(50);assert.deepEqual(await board(),initial);report.wrongNonceIgnored=true;
   await host("document.querySelector('.reroll-import-dialog [type=submit]').click()");await until(()=>js("document.querySelector('#import-character-status').textContent.includes('已导入')"),'import result');
+  await until(()=>js("!!document.querySelector('.desktop-import-summary img:not([hidden])')?.naturalWidth"),'import portrait');
+  assert.equal(await js("document.querySelector('.desktop-import-summary').parentElement.className"),'calculator-toolbar');
+  assert.equal(await js("!!document.querySelector('.tier-picker')"),false);
+  await js('scrollTo(0,0)');await delay(150);fs.writeFileSync(path.join(cacheRoot,'reroll-imported-header.png'),(await web.capturePage()).toPNG());
+  report.importPortraitInHeader=true;
   const actual=await board();assert.deepEqual(actual[0],[{stat:'攻击力增加',tier:6,locked:false},{stat:'空词条',tier:0,locked:false},{stat:'暴击率增加',tier:1,locked:false}]);assert.equal(actual[1][0].tier,12);assert.equal(actual[2][0].stat,'最大装弹数增加');assert.equal(actual[3][0].stat,'蓄力速度增加');report.fourSlotsCorrect=true;
   assert.deepEqual(await js("[...document.querySelectorAll('.equipment-target-rows')].map(c=>[...c.querySelectorAll('select,input')].map(e=>e.type==='checkbox'?e.checked:e.value))"),targetsBefore);assert.equal(await js("document.querySelector('#calculation-rule').value"),rule);assert.deepEqual(await js("[...document.querySelectorAll('.global-condition-row')].map(c=>[...c.querySelectorAll('select,input')].map(e=>e.value))"),conditions);report.targetsRuleConditionsPreserved=true;
   assert.equal(await host("JSON.stringify(Object.fromEntries(Object.entries({...localStorage}).filter(([key])=>key.startsWith('nikke-photos/profiles/'))))"),before);report.profileUnchanged=true;
@@ -61,6 +66,20 @@ module.exports=async function({window:win,cacheRoot}){
   await js("document.querySelector('#calculate').click()");await until(()=>js("document.querySelector('#app').getAttribute('aria-busy')==='false' && !document.querySelector('#result').textContent.includes('正在计算')"),'calculation');
   assert.equal(await js("document.querySelector('#message').textContent"),'');report.calculation=await js("document.querySelector('#result').textContent.slice(0,1000)");assert.match(report.calculation,/0/);
   report.simulator=await require('./check-simulator-import.cjs')({window:win,frame,cacheRoot,complete,invalid});
+  await host("document.querySelector('#tab-key-strategy').click()");
+  let keys;await until(async()=>{keys=web.mainFrame.frames.find(f=>f.url.includes('/keys/index.html'));return keys&&await keys.executeJavaScript("document.documentElement.dataset.calculatorReady==='true'")},'key ready');
+  await keys.executeJavaScript("document.querySelector('#collection-select').value='manual-four-equipment';document.querySelector('#collection-select').dispatchEvent(new Event('change',{bubbles:true}))");
+  await keys.executeJavaScript("document.querySelector('#import-completed-character').click()");await until(()=>host("!!document.querySelector('.reroll-import-dialog[open]')"),'key picker');
+  await host(`document.querySelector('input[name=reroll-import-character][value="${complete.nameCode}"]').click();document.querySelector('.reroll-import-dialog [type=submit]').click()`);
+  await until(()=>keys.executeJavaScript("document.querySelector('#import-character-status').textContent.includes('已导入')"),'key import');
+  assert.equal(await keys.executeJavaScript("document.querySelector('.equipment-current-rows .tier-select').value"),'6');
+  assert.equal(await keys.executeJavaScript("document.querySelector('#resource-strategy').value"),'zbx-keys');
+  assert.equal(await keys.executeJavaScript("JSON.parse(localStorage.getItem('nikke-tools:keys:draft:v1')).four[0].initialInput[0].tier"),6);
+  assert.equal(await host("JSON.stringify(Object.fromEntries(Object.entries({...localStorage}).filter(([key])=>key.startsWith('nikke-photos/profiles/'))))"),before);
+  await until(()=>keys.executeJavaScript("!!document.querySelector('.desktop-import-summary img:not([hidden])')?.naturalWidth"),'key portrait');
+  await keys.executeJavaScript('scrollTo(0,0)');await delay(150);fs.writeFileSync(path.join(cacheRoot,'keys-imported-header.png'),(await web.capturePage()).toPNG());
+  report.keyImportPortrait=true;
+  report.keysImportAndIndependentDraft=true;
   return report;
 };
 

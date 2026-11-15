@@ -16,7 +16,7 @@ from admin_once import owner_alive
 from win32_metadata import elevation
 from check_occluded_capture import coverage
 from collection_roster import load_collection_roster
-from collection_vision import candidates,choose_candidate,normalized_name,safe_point,element,name_fragment_matches,popup_outside_box
+from collection_vision import candidates,choose_candidate,normalized_name,safe_point,element,name_fragment_matches,popup_outside_box,search_query_matches
 from collection_vision import popup_surface_ready,popup_signature,popup_unchanged
 
 PROJECT=ROOT.parents[1]
@@ -169,7 +169,10 @@ class Collector:
         if not result.get('ok'):raise RuntimeError(result.get('error','截图处理失败'))
         return result.get('result')
     def capture(self,record=True):
-        self.guard();started=time.monotonic();self.s.capture(export=False);self.frame_captured_at=time.monotonic();self.pages.reset();self.timing('captureBgr',started)
+        self.guard();started=time.monotonic();captured=self.s.capture(export=False) or {};self.frame_captured_at=time.monotonic();self.pages.reset();self.timing('captureBgr',started)
+        backend=captured.get('captureBackend')
+        if backend and backend!=self.state.get('captureBackend'):
+            self.progress(self.state['phase'],captureBackend=backend,captureFallback=captured.get('captureFallback',False))
         if record:self.emit('frame',{'phase':self.state['phase']},True)
     def wait(self,predicate,label,initial=.7,timeout=20,confirmations=2,record=True,interval=.65):
         self.progress(label);self.delay(initial);deadline=time.monotonic()+timeout;consecutive=0
@@ -239,7 +242,10 @@ class Collector:
             raise PageDeviation('无法识别安全恢复路线；请手动调整到大厅或妮姬列表')
         raise PageDeviation('已达到受限恢复次数，请检查游戏页面')
     def query_matches(self,name):
-        return self.pages.ocr([735,286,375,58],'^'+re.escape(name).replace('：','[：:]')+'$')['hit']
+        # Stop before the clear icon (x≈1076); it was intermittently merged
+        # into QUEEN's text as "|×". Keep the existing OCR score threshold.
+        result=self.pages.ocr([735,286,330,58])
+        return result['hit'] and search_query_matches(name,Pages.texts(result))
     def enter_search_text(self,name):
         # A successful native input job is not proof that Unity focused its
         # input field. Check the visible outcome; retry only if still empty.
@@ -382,6 +388,9 @@ def main(file):
     file=Path(file).resolve();folder=file.parent
     if file.name!='request.json' or folder.parent.name!='maanikke-collection' or str(uuid.UUID(folder.name))!=folder.name:raise RuntimeError('Invalid collection request path')
     request=json.loads(file.read_text('utf-8-sig'))
+    policy=request.get('capturePolicy','auto')
+    if policy not in ('auto','printwindow-only'):raise RuntimeError('未知截图策略，拒绝启动')
+    os.environ['NIKKE_CAPTURE_POLICY']=policy
     if request['version']!=1 or request['action']!='collect-roster' or request['runId']!=folder.name or not 0<=time.time()-request['createdAt']<=300:raise RuntimeError('Invalid or expired collection request')
     codes=request['nameCodes']
     request['characters']=load_collection_roster(PROJECT,codes)

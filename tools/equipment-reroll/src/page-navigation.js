@@ -33,7 +33,7 @@ export function installPageNavigation(panel) {
   }))
   top.addEventListener('click',()=>{
     window.scrollTo({top:0,behavior:behavior()})
-    document.querySelector('#reroll-calculator-tab').focus({preventScroll:true})
+    document.querySelector('#collection-select')?.focus({preventScroll:true})
   })
   window.addEventListener('scroll',schedule,{passive:true})
   window.addEventListener('resize',schedule)

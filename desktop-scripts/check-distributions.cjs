@@ -5,7 +5,7 @@ async function walk(dir,base=''){for(const item of fs.readdirSync(dir,{withFileT
  const file=path.join(dir,item.name),key=path.posix.join(base,item.name);assert.equal(fs.lstatSync(file).isSymbolicLink(),false);if(item.isDirectory())await walk(file,key);else expected.set('NIKKE Photos/'+key,await hashStream(fs.createReadStream(file)));
 }}
 async function main(){
- await walk(app);for(const file of ['README.md','LICENSE','LICENSING.md'].filter(name=>fs.existsSync(path.join(root,name))))expected.set('NIKKE Photos/'+file,await hashStream(fs.createReadStream(path.join(root,file))));
+ await walk(app);for(const file of ['README.md','LICENSE','LICENSING.md'])expected.set('NIKKE Photos/'+file,await hashStream(fs.createReadStream(path.join(root,file))));
  const zip=await require('unzipper').Open.file(path.join(folder,prefix+'.zip')),zipSeen=new Set();
  for(const entry of zip.files){if(entry.type==='Directory')continue;assert.ok(expected.has(entry.path),'unexpected ZIP file '+entry.path);assert.equal(await hashStream(entry.stream()),expected.get(entry.path),'ZIP '+entry.path);zipSeen.add(entry.path)}assert.equal(zipSeen.size,expected.size);
  const tarSeen=new Set(),extract=require('tar-stream').extract();

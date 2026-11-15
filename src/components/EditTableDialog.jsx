@@ -1,4 +1,6 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 import CharacterAvatar from './CharacterAvatar.jsx'
+import IncompleteEquipmentNotice from './IncompleteEquipmentNotice.jsx'
 // 「编辑表格角色」弹窗：词条统计表的名单与署名都在这儿改
 //
 // 筛选与分组网格照搬「我的妮姬」页（同一批候选：四件装备齐的角色），属性按钮直接
@@ -23,8 +25,9 @@ const ELEMENT_BUTTONS = ELEMENT_ORDER.map((label) => {
 })
 
 export default function EditTableDialog({
-  characters, suspendedCharacters = [], selectedCodes, credit, onToggle, onClear, onCreditChange, onClose,
+  characters, records, suspendedCharacters = [], selectedCodes, credit, onToggle, onClear, onCreditChange, onClose,
 }) {
+  const cnRevision = useCnRosterRevision()
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(NO_SELECTION)
   const [toggles, setToggles] = useState(DEFAULT_TOGGLES)
@@ -41,7 +44,7 @@ export default function EditTableDialog({
   // 属性按钮之外的条件先应用一遍：按钮上的数量按「其他筛选都生效后」统计（与我的妮姬同口径）
   const scoped = useMemo(
     () => applyFilters(characters, { search, selected, toggles }),
-    [characters, search, selected, toggles],
+    [characters, search, selected, toggles, cnRevision],
   )
 
   const elementCounts = useMemo(() => {
@@ -224,6 +227,7 @@ export default function EditTableDialog({
         </div>
 
         <div className="et-body">
+          <IncompleteEquipmentNotice records={records} />
           {suspendedCharacters.length > 0 ? (
             <section className="stats-paused">
               <p>{t('装备未录齐，暂不参与统计；已保留选择顺序，补齐后自动恢复。点击头像可移出名单。')}</p>
@@ -253,8 +257,8 @@ export default function EditTableDialog({
               </section>
             )) : (
               <div className="empty">
-                <div className="t">{t('没有匹配的角色')}</div>
-                <div>{t('换个关键词，或调整筛选条件')}</div>
+                <div className="t">{characters.length ? t('没有匹配的角色') : '当前没有四件装备完整的角色'}</div>
+                {characters.length > 0 && <div>{t('换个关键词，或调整筛选条件')}</div>}
               </div>
             ))}
         </div>

@@ -1,0 +1,2 @@
+* text=auto eol=lf
+tools/damage-simulator/vendor/** -text

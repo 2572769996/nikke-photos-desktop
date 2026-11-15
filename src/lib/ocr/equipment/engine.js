@@ -162,6 +162,7 @@ const runV2 = async (image, {
       regionGuardFailed: guard.guardFailed,
       matchValue: (functionType) => matchEquipmentValueTemplate(observed, functionType, {
         valueStyle,
+        includeCandidate: true,
         loadFullTemplate,
         loadGlyph,
       }),

@@ -6,7 +6,7 @@ async function until(read,label){for(let i=0;i<200;i++){const value=await read()
 
 module.exports=async function checkStrategy(window,cacheRoot,options={}){
   const web=window.webContents;
-  const frame=await until(async()=>web.mainFrame.frames.find(f=>f.url.startsWith('nikke://reroll/equipment-reroll/')&&f.url.includes('theme=light')),'light strategy frame');
+  let frame=await until(async()=>web.mainFrame.frames.find(f=>f.url.startsWith('nikke://reroll/equipment-reroll/')&&f.url.includes('theme=light')),'light strategy frame');
   await until(()=>frame.executeJavaScript("!!document.querySelector('#resource-strategy')"),'strategy UI');
   const hostBefore=await web.executeJavaScript('JSON.stringify({...localStorage})');
   const red=web.mainFrame.frames.find(f=>f.url.startsWith('nikke://tools/core-dust/'));
@@ -15,6 +15,16 @@ module.exports=async function checkStrategy(window,cacheRoot,options={}){
   const original=[line('防御力增加',1,true),line('攻击力增加',1),line()];
   const target=[line('攻击力增加',1,true),line('优越代码伤害增加',1,true)];
   async function select(selector,value){
+    if(selector==='#resource-strategy') {
+      const keys=value==='zbx-keys',entry=keys?'/keys/index.html':'/equipment-reroll/index.html';
+      const board=await readBoard(),targets=await frame.executeJavaScript("[...document.querySelectorAll('#target-rows .form-row')].map(r=>({stat:r.querySelector('.stat-select').value,tier:Number(r.querySelector('.tier-select').value),flagged:r.querySelector('.flag-input').checked}))");
+      await web.executeJavaScript(`document.querySelector('#tab-${keys?'key-strategy':'equipment-reroll'}').click()`);
+      frame=await until(()=>web.mainFrame.frames.find(f=>f.url.includes(entry)),'separate frame');
+      await until(()=>frame.executeJavaScript("document.documentElement.dataset.calculatorReady==='true'"),'ready');
+      assert.equal(await frame.executeJavaScript("document.querySelector('#resource-strategy').disabled"),true);
+      assert.equal(await frame.executeJavaScript("document.querySelector('#resource-strategy').value"),value);
+      await select('#collection-select','single-equipment');await select('#calculation-rule','cn-legacy');await fill('#initial-rows',board);await fill('#target-rows',targets);return;
+    }
     await frame.executeJavaScript(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);await delay(20);
   }
   async function fill(selector,values){
@@ -60,7 +70,7 @@ module.exports=async function checkStrategy(window,cacheRoot,options={}){
 
   // Native Workshop forced-retention comparison remains available.
   await select('#resource-strategy','workshop-stone');
-  assert.match(await frame.executeJavaScript("document.querySelector('#result').textContent"),/请重新计算/);
+  assert.match(await frame.executeJavaScript("document.querySelector('#result').textContent"),/请重新.*计算/);
   const forced=[line('攻击力增加',5,true),line('防御力增加',10,false,true),line()];
   await fill('#initial-rows',forced);await fill('#target-rows',[line('攻击力增加',10,true)]);
   await click('#compare-capture');
@@ -100,10 +110,11 @@ module.exports=async function checkStrategy(window,cacheRoot,options={}){
   assert.equal(await web.executeJavaScript('JSON.stringify({...localStorage})'),hostBefore);
   if(red)assert.equal(await red.executeJavaScript('JSON.stringify({...localStorage})'),redBefore);
   await select('#collection-select','manual-four-equipment');
-  assert.equal(await frame.executeJavaScript("document.querySelector('#resource-strategy').disabled"),false);
-  assert.equal(await frame.executeJavaScript("document.querySelector('#resource-strategy').value"),'workshop-stone');
+  assert.equal(await frame.executeJavaScript("document.querySelector('#resource-strategy').disabled"),true);
+  assert.equal(await frame.executeJavaScript("document.querySelector('#resource-strategy').value"),'zbx-keys');
   assert.equal(await frame.executeJavaScript("document.querySelector('#compare-panel').hidden"),true);
   const enhancements=options.enhancements ? await require('./check-reroll-enhancements.cjs')({window,frame,cacheRoot,select,fill,click,settled}) : {separateCheck:'npm run strategy:ui-check'};
   assert.equal(await web.executeJavaScript('JSON.stringify({...localStorage})'),hostBefore);
   return {keyAction:true,pOneFallback:true,sameSettingsComparison:true,staleResultRejected:true,applyRestore:true,forcedWorkshop:true,unsupportedKeyConstraintsRejected:true,invalidP:true,cancel:true,globalRule:true,fourEquipmentGuard:true,hostAndRedStorageUnchanged:true,enhancements};
 };
+

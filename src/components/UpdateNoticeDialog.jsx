@@ -42,7 +42,7 @@ export default function UpdateNoticeDialog({ onClose }) {
           <p className="cl-range">v{CURRENT_VERSION}</p>
           <ol className="cl-items">
             {entry.items.map((item, index) => (
-              <li key={item}>{index + 1}、{item}</li>
+              <li key={typeof item==='string'?item:item.title}>{index + 1}、{typeof item==='string'?item:<><strong>{item.title}</strong>{item.details?.length>0&&<ul className="cl-details">{item.details.map(detail=><li key={detail}>{detail}</li>)}</ul>}</>}</li>
             ))}
           </ol>
           <div className="cl-date">{displayDate(entry.date)}</div>

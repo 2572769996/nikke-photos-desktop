@@ -8,6 +8,8 @@ const atk={functionType:'StatAtk',level:1,value:4.77},def={functionType:'StatDef
 const empty=[null,null,null],valid=[atk,null,def],duplicate=[atk,{...atk},null],missingFirst=[null,def,null]
 for(const rows of [empty,valid,[atk,null,null]])assert.equal(equipmentIssue(rows),'')
 assert.match(equipmentIssue(duplicate),/重复/);assert.match(equipmentIssue(missingFirst),/第一条/)
+assert.throws(()=>assertEquipmentChanges({}, {'5001':{equipments:[duplicate]}}),error=>error.message.includes('麦斯威尔')&&!error.message.includes('5001'))
+assert.throws(()=>assertEquipmentChanges({}, {'unknown-internal-key':{equipments:[duplicate]}}),error=>error.message.includes('未收录角色')&&!error.message.includes('unknown-internal-key'))
 const record=rows=>({equipments:Array.from({length:4},()=>structuredClone(rows)),skills:{skill1:5}})
 const old=record(duplicate),unchanged=structuredClone(old);unchanged.skills.skill1=7
 assert.doesNotThrow(()=>assertEquipmentChanges({a:old},{a:unchanged}))

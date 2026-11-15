@@ -1,3 +1,4 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 // 数据录入表单：字段与角色卡数据模型一一对应，改动即时反映到卡片预览
 import { useEffect, useRef, useState } from 'react'
 import { CUBES } from '../lib/cubes.js'
@@ -14,7 +15,15 @@ const FUNCTION_OPTIONS = Object.entries(FUNCTION_LABELS)
 // 收藏品品质：SSR（专属珍藏品）只对该角色是珍藏品版本时可选（见 favoriteCharacter）
 const BASE_RARITIES = ['R', 'SR']
 
-export default function CharacterForm({ character, value, onChange, synchroLevel, onSynchroLevelChange, classLevel, corporationLevel, classLabel, corporationLabel, onSyncSkills, hasStored, hasSample, favoriteCharacter, onClearStored, onRestoreSample }) {
+export default function CharacterForm({ character, value, onChange, synchroLevel, onSynchroLevelChange, classLevel, corporationLevel, classLabel, corporationLabel, onSyncSkills, hasStored, hasSample, favoriteCharacter, onClearStored, onRestoreSample, onValidityChange }) {
+  useCnRosterRevision()
+  const [invalidFields, setInvalidFields] = useState({})
+  const reportValidity = (field, valid) => setInvalidFields(current => {
+    if (Boolean(current[field]) === !valid) return current
+    return { ...current, [field]: !valid }
+  })
+  const fieldsValid = !Object.values(invalidFields).some(Boolean)
+  useEffect(() => { onValidityChange?.(fieldsValid) }, [fieldsValid, onValidityChange])
   const limit = value.limitBreak || {}
   const skills = value.skills || {}
   const cube = value.cube || {}
@@ -126,16 +135,16 @@ export default function CharacterForm({ character, value, onChange, synchroLevel
         <section className="form-block">
           <h3>{t('基础')}</h3>
           <NumField
-            label="等级（同步器）"
+            onValidityChange={valid => reportValidity('等级（同步器）', valid)} label="等级（同步器）"
             value={synchroLevel}
             onChange={(next) => onSynchroLevelChange?.(next)}
             rangeKey="synchro"
             hint="全体妮姬共用，改动即同步"
           />
-          <NumField label="突破（星）" value={limit.grade} onChange={(v) => setLimit({ grade: v })} rangeKey="grade" />
-          <NumField label="核心" value={limit.core} onChange={(v) => setLimit({ core: v })} rangeKey="core" />
-          <NumField label="好感度" value={value.affection} onChange={(v) => set({ affection: v })} rangeKey="affection" />
-          <NumField label="战斗力" value={value.combat} onChange={(v) => set({ combat: v })} rangeKey="combat" />
+          <NumField onValidityChange={valid => reportValidity('突破（星）', valid)} label="突破（星）" value={limit.grade} onChange={(v) => setLimit({ grade: v })} rangeKey="grade" />
+          <NumField onValidityChange={valid => reportValidity('核心', valid)} label="核心" value={limit.core} onChange={(v) => setLimit({ core: v })} rangeKey="core" />
+          <NumField onValidityChange={valid => reportValidity('好感度', valid)} label="好感度" value={value.affection} onChange={(v) => set({ affection: v })} rangeKey="affection" />
+          <NumField onValidityChange={valid => reportValidity('战斗力', valid)} label="战斗力" value={value.combat} onChange={(v) => set({ combat: v })} rangeKey="combat" />
         </section>
 
         <section className="form-block">
@@ -144,7 +153,7 @@ export default function CharacterForm({ character, value, onChange, synchroLevel
             <button
               type="button"
               className="btn btn-sm"
-              disabled={!skillsReady}
+              disabled={!skillsReady || !fieldsValid}
               title={skillsReady ? t('把当前技能等级同步给已完善的角色') : t('先把技能 1 / 技能 2 / 爆裂技能 都填好')}
               onClick={() => onSyncSkills?.({
                 skill1: Number(skills.skill1),
@@ -165,9 +174,9 @@ export default function CharacterForm({ character, value, onChange, synchroLevel
             <span className="form-static">{corporationLevel ?? '—'}</span>
             <span className="form-hint">{t('{label} · 在存档编辑中修改', { label: corporationLabel || t('企业') })}</span>
           </div>
-          <NumField label="技能 1" value={skills.skill1} onChange={(v) => setSkills({ skill1: v })} rangeKey="skill" />
-          <NumField label="技能 2" value={skills.skill2} onChange={(v) => setSkills({ skill2: v })} rangeKey="skill" />
-          <NumField label="爆裂技能" value={skills.burst} onChange={(v) => setSkills({ burst: v })} rangeKey="skill" />
+          <NumField onValidityChange={valid => reportValidity('技能 1', valid)} label="技能 1" value={skills.skill1} onChange={(v) => setSkills({ skill1: v })} rangeKey="skill" />
+          <NumField onValidityChange={valid => reportValidity('技能 2', valid)} label="技能 2" value={skills.skill2} onChange={(v) => setSkills({ skill2: v })} rangeKey="skill" />
+          <NumField onValidityChange={valid => reportValidity('爆裂技能', valid)} label="爆裂技能" value={skills.burst} onChange={(v) => setSkills({ burst: v })} rangeKey="skill" />
         </section>
 
         <section className="form-block">
@@ -189,7 +198,7 @@ export default function CharacterForm({ character, value, onChange, synchroLevel
               ))}
             </select>
           </label>
-          <NumField label="魔方等级" value={cube.level} onChange={(v) => setCube({ level: v })} rangeKey="cubeLevel" />
+          <NumField onValidityChange={valid => reportValidity('魔方等级', valid)} label="魔方等级" value={cube.level} onChange={(v) => setCube({ level: v })} rangeKey="cubeLevel" />
           <label className="form-row">
             <span className="form-label">{t('收藏品')}</span>
             <select
@@ -205,7 +214,7 @@ export default function CharacterForm({ character, value, onChange, synchroLevel
             </select>
           </label>
           <NumField
-            label="收藏品等级"
+            onValidityChange={valid => reportValidity('收藏品等级', valid)} label="收藏品等级"
             value={favoriteLevelValue}
             onChange={(v) => setFavorite({ level: isFavoriteSsr ? (v === null ? null : v - 1) : v })}
             rangeKey={isFavoriteSsr ? 'favoriteLevelSsr' : 'favoriteLevel'}

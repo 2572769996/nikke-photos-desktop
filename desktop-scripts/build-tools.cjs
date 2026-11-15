@@ -2,6 +2,8 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
+const damage = spawnSync(process.execPath,[path.join(root,'desktop-scripts/prepare-damage-catalog.mjs')],{cwd:root,stdio:'inherit'});
+if(damage.status !== 0) process.exit(damage.status ?? 1);
 const cache = process.env.NIKKE_CACHE_DIR || path.resolve(root, '..', 'codex temp', 'nikke-desktop');
 const temp = path.join(cache, 'temp');
 fs.mkdirSync(temp, { recursive: true });
@@ -17,5 +19,7 @@ const result = spawnSync(process.execPath, [
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
 }
+const collection = spawnSync(process.execPath, [path.join(root, 'tools/sr-collection/build.mjs')], {cwd:root,stdio:'inherit'});
+if (collection.status !== 0) process.exit(collection.status ?? 1);
 const about = spawnSync(process.execPath, [path.join(root, 'desktop-scripts/prepare-about.mjs')], {cwd:root,stdio:'inherit'});
 if (about.status !== 0) process.exit(about.status ?? 1);

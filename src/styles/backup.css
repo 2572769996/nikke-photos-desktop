@@ -1,0 +1,7 @@
+.backup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.backup-card { border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.backup-card h2 { font-size: 18px; margin: 0 0 12px; }
+.backup-card p { line-height: 1.7; }
+.backup-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.backup-summary { white-space: pre-wrap; overflow-wrap: anywhere; }
+.backup-page .dlg-body { max-height: 60vh; overflow-y: auto; overflow-wrap: anywhere; }

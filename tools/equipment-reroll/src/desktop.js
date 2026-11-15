@@ -13,6 +13,8 @@ try {
   parent.postMessage({ type: 'nikke-tools:error' }, targetOrigin)
 }
 
-import { installPageNavigation } from './page-navigation.js'
-installPageNavigation(document.querySelector('#calculator-panel'))
+import { installFieldProgression } from './field-progression.js'
+installFieldProgression()
 
+
+document.documentElement.dataset.calculatorReady='true'

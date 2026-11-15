@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useState, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useReducer, useState, useSyncExternalStore } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import AccountImportDialog from './components/AccountImportDialog.jsx'
 import CaptureSourceDialog from './components/CaptureSourceDialog.jsx'
@@ -29,6 +29,7 @@ import { shouldShowUpdateNotice } from './lib/updateNotice.js'
 
 /** 拖放导入统一落到这一页：它订阅了存档变更，导入完列表会立刻刷新 */
 const IMPORT_LANDING_PATH = '/profiles'
+const BackupPage = lazy(() => import('./pages/BackupPage.jsx'))
 
 export default function App() {
   useSyncExternalStore(subscribeCustomNikkes, getCustomNikkeRevision)
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="/my-nikke" element={<MyNikkePage />} />
         <Route path="/my" element={<MyPage />} />
         <Route path="/profiles" element={<ProfilesPage />} />
+        <Route path="/backups" element={<Suspense fallback={<main className="page">正在加载备份中心…</main>}><BackupPage /></Suspense>} />
         <Route path="/schemes" element={<SchemesPage />} />
         <Route path="/bot-share" element={<BotSharePage />} />
         <Route path="/stats" element={<StatsPage />} />

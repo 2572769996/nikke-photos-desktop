@@ -39,7 +39,14 @@ export default function RerollEquipmentImportDialog({ onClose, onImport, purpose
       if (!fullyRecordedCodes(profileId).includes(selected) || !CHARACTERS.some(item => item.nameCode === selected)) throw Error('角色不再属于已完善名单，请重新选择')
       const latest = toRerollEquipmentSnapshot(loadRecord(selected))
       if (JSON.stringify(latest) !== JSON.stringify(snapshot)) { setMessage(t('装备数据已更新，请确认最新预览后再次导入。')); refresh(value => value + 1); return }
-      onImport({ ...latest, equipments:single?[latest.equipments[equipmentIndex]]:latest.equipments, ...(single?{slot:equipmentIndex}:{}), name: displayName(character) })
+      // Transfer only the already displayed portrait pixels, never a host file
+      // path, profile identifier or a cross-origin image URL.
+      let avatarData=''
+      const portrait=dialog.current?.querySelector('input[name="reroll-import-character"]:checked')?.closest('label')?.querySelector('img')
+      if(portrait?.complete&&portrait.naturalWidth){
+        try {const canvas=document.createElement('canvas');canvas.width=canvas.height=72;canvas.getContext('2d').drawImage(portrait,0,0,72,72);avatarData=canvas.toDataURL('image/png')} catch { /* Missing portrait does not block equipment import. */ }
+      }
+      onImport({ ...latest, equipments:single?[latest.equipments[equipmentIndex]]:latest.equipments, ...(single?{slot:equipmentIndex}:{}), name: displayName(character), ...(avatarData?{avatarData}:{}) })
     }
     catch (error) { setMessage(error.message) }
   }

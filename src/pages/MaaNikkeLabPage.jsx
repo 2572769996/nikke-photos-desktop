@@ -19,7 +19,7 @@ export default function MaaNikkeLabPage() {
    if(!mounted.current||token!==generation.current)return
    if(command==='initialize')setInfo(value)
    if(command==='windows'){setWindows(value.windows);setSelected(value.windows[0]?.hwnd||'');if(!value.count)setError('未检测到国服游戏窗口。请手动启动游戏并进入大厅，再检测。')}
-   if(command==='connect'){setConnected(value.target);setCapture(null);setResult(null)}
+   if(command==='connect'){setConnected({...value.target,captureBackend:value.captureBackend});setCapture(null);setResult(null)}
    if(command==='capture'){setCapture(value);setResult(null)}
    if(command==='analyze'){setCapture(value.capture);setResult(value)}
    if(command==='inputTest')setInput(value)
@@ -50,7 +50,7 @@ export default function MaaNikkeLabPage() {
    <button disabled={!connected||!!busy} onClick={()=>run('capture')}>获取游戏截图</button>
    <button disabled={!connected||!!busy} onClick={()=>run('analyze')}>新截图并识别大厅 / 妮姬</button>
   </div>
-  {connected&&<p>已连接：{connected.title} · PID {connected.pid} · FramePool / SendMessageWithCursorPos（游戏输入关闭）</p>}
+  {connected&&<p>已连接：{connected.title} · PID {connected.pid} · {capture?.captureBackend||connected.captureBackend||'FramePool'} / SendMessageWithCursorPos（游戏输入关闭）</p>}
   {capture&&<section className="maa-card"><h2>游戏截图</h2><p>原图 {capture.width}×{capture.height} · {new Date(capture.capturedAt*1000).toLocaleTimeString()}</p><div style={{position:'relative'}}><img style={{width:'100%',display:'block'}} src={capture.image} alt="MaaNikke实时游戏截图"/>{result?.nikkeBox&&<div aria-label="妮姬按钮命中框" style={{position:'absolute',pointerEvents:'none',border:'2px solid #00d58c',left:`${result.nikkeBox[0]/capture.width*100}%`,top:`${result.nikkeBox[1]/capture.height*100}%`,width:`${result.nikkeBox[2]/capture.width*100}%`,height:`${result.nikkeBox[3]/capture.height*100}%`}}/>}</div></section>}
   {result&&<section className="maa-card" aria-label="MaaNikke识别结果"><h2>识别结果</h2><p>大厅：{result.lobby?'命中':'未确认'} · 妮姬按钮：{result.nikkeLocated?'已定位':'未定位'} · 原图坐标：{JSON.stringify(result.nikkeBox)}</p><p>妮姬列表：{result.listPage?.verified?'已确认':'未确认'} · 左上标题：{result.listPage?.title?'命中':'未命中'} · 标题/信息图标：{result.listPage?.header?'命中':'未命中'} · 筛选栏：{result.listPage?.toolbar?'命中':'未命中'}</p>{result.listPage&&<p>控件：{Object.entries(result.listPage.controls).map(([name,hit])=>`${({Search:'搜索',BurstI:'I',BurstII:'II',BurstIII:'III',Favorite:'收藏',Circle:'圆形筛选',Sort:'战斗力排序'})[name]} ${hit?'✓':'未命中'}`).join(' · ')}</p>}<p>Agent RotatedOCR：{result.agentRotatedOCR.hit?'命中':'未命中'}。模板分数表示匹配程度，不代表正确概率；首阶段仅支持16:9，识别基准1280×720。</p><details><summary>节点结果与匹配详情</summary><pre>{JSON.stringify({...result,capture:undefined},null,2)}</pre></details></section>}
   <section className="maa-card"><h2>管理员单次进入妮姬</h2><p>请先手动返回游戏大厅。点击后本人确认 Windows UAC，并切回游戏；等待8秒及两帧预检后最多点击一次。点击后先等3秒，再最多观察6帧，连续两帧匹配列表标题和筛选栏才判成功。失败不补点，不操作列表内按钮。</p><button disabled={!selected||!info||!!busy} onClick={()=>run('adminEnterNikke',{hwnd:selected})}>请求提权并单次进入妮姬</button>{admin&&<p role="status">{admin.passed?'已进入并确认妮姬列表':admin.canceled?'已取消 UAC':admin.error||admin.note||'未通过'} · 输入请求 {admin.inputRequests} 次</p>}</section>

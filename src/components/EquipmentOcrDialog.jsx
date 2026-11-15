@@ -1,7 +1,8 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 // 装备词条识别弹窗：四路输入（拖拽 / 粘贴 / 选择文件 / 屏幕抓帧）→ 识别 → 逐行核对 → 应用到该部位
 // 识别入口与资源加载分别在 src/lib/ocr/equipment/engine.js 与 assets.js，本组件只负责交互
 import { useEffect, useRef, useState } from 'react'
-import { equipmentIssue } from '../lib/equipmentRules.js'
+import { toEditableRows, toEquipmentLine, ocrRowsIssue } from '../lib/equipmentOcrReview.js'
 import { createPortal } from 'react-dom'
 import { AFFIX_TIER_VALUES, FUNCTION_LABELS, affixTierText } from '../data/affixTiers.js'
 import { recognizeEquipment } from '../lib/ocr/equipment/engine.js'
@@ -38,41 +39,6 @@ const blobToDataUrl = (blob) => new Promise((resolve) => {
   reader.readAsDataURL(blob)
 })
 
-/** 识别输出 → 弹窗可编辑行（数值只允许档位值：吸附成功才有 level，失败留空并保留“需核对”） */
-const toEditableRows = (rows) => rows.map((row) => (row.empty
-  ? {
-    position: row.position,
-    status: row.status || 'empty',
-    empty: true,
-    functionType: '',
-    level: null,
-    confidence: null,
-    snapped: false,
-    snapReason: 'none',
-    needsConfirm: false,
-    flags: [],
-  }
-  : {
-    position: row.position,
-    status: row.status || 'ok',
-    empty: false,
-    functionType: row.functionType || '',
-    level: row.tier ?? null,
-    confidence: row.confidence || null,
-    snapped: Boolean(row.snapped),
-    snapReason: row.snapReason || 'none',
-    needsConfirm: Boolean(row.needsConfirm),
-    flags: Array.isArray(row.flags) ? row.flags : [],
-  }))
-
-/** 行 → 写回数据：值由档位表推出（数值只可能落在档位上）；未获得行 → null */
-const toEquipmentLine = (row) => {
-  if (row.empty || !row.functionType) return null
-  const tiers = AFFIX_TIER_VALUES[row.functionType]
-  if (!row.level || !tiers) return { functionType: row.functionType, level: null, value: null }
-  return { functionType: row.functionType, level: row.level, value: tiers[row.level - 1] }
-}
-
 function OcrRow({ row, rows, onChange }) {
   const tiers = row.functionType ? AFFIX_TIER_VALUES[row.functionType] : null
   const tierSelectRef = useRef(null)
@@ -96,12 +62,13 @@ function OcrRow({ row, rows, onChange }) {
       <span className="ocr-pos">{row.position}</span>
       <select
         className="inp inp-sm"
-        value={row.functionType}
+        value={row.functionType || (row.empty ? '' : '__unknown')}
         onChange={(event) => {
-          onChange({ functionType: event.target.value, empty: !event.target.value })
+          onChange({ functionType: event.target.value, empty: !event.target.value, level: null })
           if (event.target.value) jumpToTiers()
         }}
       >
+        {!row.empty && !row.functionType ? <option value="__unknown" disabled>名称未识别，请选择</option> : null}
         <option value="">{t('未获得效果')}</option>
         {FUNCTION_OPTIONS.map(([code, label]) => (
           <option key={code} value={code} disabled={code !== row.functionType && rows.some(other => other.position !== row.position && !other.empty && other.functionType === code)}>{tData(label)}</option>
@@ -123,13 +90,14 @@ function OcrRow({ row, rows, onChange }) {
       </select>
       <span className="ocr-flag-cell">
         {row.snapped ? <span className="ocr-flag">{t('已校正至档位')}</span> : null}
-        {row.needsConfirm ? <span className="ocr-flag ocr-flag-warn">{t('需核对')}</span> : null}
+        {!row.empty && !row.level ? <span className="ocr-flag ocr-flag-warn">数值未识别</span> : row.needsConfirm ? <span className="ocr-flag ocr-flag-warn">{t('需核对')}</span> : null}
       </span>
     </div>
   )
 }
 
 export default function EquipmentOcrDialog({ character, open, slotLabel, onClose, onApply }) {
+  useCnRosterRevision()
   const [phase, setPhase] = useState('idle') // idle | busy | done
   const [rows, setRows] = useState([])
   const [message, setMessage] = useState('')
@@ -234,7 +202,7 @@ export default function EquipmentOcrDialog({ character, open, slotLabel, onClose
 
   const apply = () => {
     if (phase !== 'done' || !isCnCharacter(character)) return
-    const issue = equipmentIssue(rows.map(toEquipmentLine))
+    const issue = ocrRowsIssue(rows)
     if (issue) { setMessage(`无法应用：${issue}。请核对识别结果。`); return }
     // 存在未确认的行时先问一次（规格 §4.5 / Q19=a）；确认后正常写入，
     // 装备数据模型里**不保留**任何"未确认"状态。
@@ -252,7 +220,7 @@ export default function EquipmentOcrDialog({ character, open, slotLabel, onClose
 
   const confirmApply = () => {
     if (!isCnCharacter(character)) return
-    const issue = equipmentIssue(rows.map(toEquipmentLine))
+    const issue = ocrRowsIssue(rows)
     if (issue) { setMessage(`无法应用：${issue}。请核对识别结果。`); setConfirmCount(0); confirmCountRef.current=0; return }
     confirmCountRef.current = 0
     setConfirmCount(0)
@@ -395,6 +363,7 @@ export default function EquipmentOcrDialog({ character, open, slotLabel, onClose
           ) : null}
 
           {phase === 'busy' ? <p className="ocr-status">{t('识别中…')}</p> : null}
+          {phase === 'done' && ocrRowsIssue(rows) ? <p role="alert" className="dlg-error">{ocrRowsIssue(rows)}。无法提取数值时请重新截图或手动补齐。</p> : null}
           {message ? <p className="dlg-error">{message}</p> : null}
           {warnings.length > 0 ? (
             <ul className="ocr-warn-list">
@@ -414,7 +383,7 @@ export default function EquipmentOcrDialog({ character, open, slotLabel, onClose
 
         <div className="dlg-foot">
           <button type="button" className="btn" onClick={onClose}>{t('取消')}</button>
-          <button type="button" className="btn btn-primary" onClick={apply} disabled={phase !== 'done'}>{t('应用')}</button>
+          <button type="button" className="btn btn-primary" onClick={apply} disabled={phase !== 'done' || !!ocrRowsIssue(rows)}>{t('应用')}</button>
         </div>
       </div>
 

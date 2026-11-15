@@ -50,13 +50,17 @@ def encode_png(bgr, *, compress_level=6):
     return output.getvalue()
 
 class Service:
-    def __init__(self, cache):
+    def __init__(self, cache, *, capture_policy=None):
+        self.capture_policy = capture_policy if capture_policy is not None else os.environ.get('NIKKE_CAPTURE_POLICY', 'auto')
+        if self.capture_policy not in ('auto', 'printwindow-only'):
+            raise ValueError('未知截图策略，拒绝启动')
         self.cache = Path(cache).resolve()
         self.cache.mkdir(parents=True,exist_ok=True)
         self.agent = self.client = self.resource = self.tasker = self.controller = None
         self.agent_log = None
         self.connection = None
         self.last = None
+        self.capture_backend = None
         self.nodes = safe_nodes()
 
     def initialize(self):
@@ -116,7 +120,7 @@ class Service:
 
     def controller_settings(self):
         interface = json.loads((ROOT/'vendor/interface.json').read_text('utf-8'))
-        return interface['controller'][0]['win32']
+        return {**interface['controller'][0]['win32'], 'screencapFallback': 'PrintWindow', 'capturePolicy': self.capture_policy}
 
     def recognize(self, kind, params, image):
         from maa.pipeline import JOCR,JTemplateMatch,JCustomRecognition,JFeatureMatch
@@ -148,6 +152,12 @@ class Service:
         return {'windows':matches,'count':len(matches),'connection':self.connection}
 
     def connect(self, hwnd):
+        # A failed reconnect must not leave an earlier frame/connection usable.
+        self.connection = None
+        self.last = None
+        if self.capture_backend:
+            self.capture_backend.close()
+        self.capture_backend = None
         windows = self.windows()['windows']
         target = next((w for w in windows if w['hwnd']==str(hwnd)),None)
         if target is None:
@@ -155,45 +165,56 @@ class Service:
         from maa.controller import Win32Controller
         from maa.define import MaaWin32ScreencapMethodEnum as S,MaaWin32InputMethodEnum as I
         config = self.controller_settings()
-        # These settings exactly follow the pinned interface, but no input API is exposed for game targets.
-        controller = Win32Controller(int(hwnd),getattr(S,config['screencap']),getattr(I,config['mouse']),getattr(I,config['keyboard']))
-        controller.set_screenshot_use_raw_size(True)
-        if not controller.post_connection().wait().succeeded:
-            raise RuntimeError('国服窗口连接失败；请查看原生日志，检查游戏状态及权限')
-        self.tasker.bind(self.resource,controller)
-        self.controller = controller
+        from capture_backend import CaptureBackend, window_state
+        if config['screencap'] != 'FramePool':
+            raise RuntimeError('默认截图后端配置已变化, 请核对固定版本')
+        def inspect():
+            if target not in self.windows()['windows']:
+                from capture_backend import WindowStateError
+                raise WindowStateError('窗口身份已改变, 请重新连接')
+            return window_state(hwnd, target['pid'])
+        def bind(controller):
+            if not self.tasker.bind(self.resource, controller):
+                return False
+            self.controller = controller
+            return True
+        def record(status):
+            (self.cache/'capture-backend.json').write_text(json.dumps(status,ensure_ascii=False,indent=2),encoding='utf-8')
+        backend = CaptureBackend(
+            lambda method: Win32Controller(int(hwnd),getattr(S,method),getattr(I,config['mouse']),getattr(I,config['keyboard'])),
+            inspect, bind, record, policy=self.capture_policy)
+        try:
+            backend.connect()
+        except Exception:
+            backend.close()
+            raise
+        self.capture_backend = backend
         self.connection = target
         self.last = None
-        return {'connected':True,'target':target,'settings':config,'gameInputEnabled':False}
+        return {'connected':True,'target':target,'settings':{**config,'screencap':backend.method},
+                **backend.status(),'gameInputEnabled':False}
 
     def capture(self, *, export=True):
         if not self.connection:
             raise RuntimeError('请先连接国服游戏窗口')
-        current = self.windows()['windows']
-        if self.connection not in current:
+        self.last = None
+        try:
+            if not self.capture_backend:
+                raise RuntimeError('截图连接已失效, 请重新连接')
+            image = self.capture_backend.capture()
+        except Exception:
             self.connection = None
-            self.last = None
-            raise RuntimeError('窗口身份已改变，请重新连接')
-        user32 = ctypes.windll.user32
-        if user32.IsIconic(ctypes.c_void_p(int(self.connection['hwnd']))):
-            raise RuntimeError('游戏已最小化，请手动恢复后重试')
-        if not self.controller.post_screencap().wait().succeeded:
-            raise RuntimeError('FramePool截图失败')
-        image = self.controller.cached_image
-        import numpy as np
-        if image is None or image.ndim!=3 or image.shape[2]!=3 or image.dtype!=np.uint8:
-            raise RuntimeError('截图必须是三通道uint8 BGR')
-        if float(image.std())<1:
-            raise RuntimeError('截图接近全黑；可能仍在加载，请进入大厅后重新截图')
-        self.last = image.copy()
+            raise
+        self.last = image
+        backend_status = self.capture_backend.status()
         # Internal collection polls consume BGR directly. The normal RPC keeps
         # its original PNG/base64 contract and screenshot behavior by default.
         if not export:
-            return {'width':image.shape[1],'height':image.shape[0],'capturedAt':time.time(),'target':self.connection}
+            return {'width':image.shape[1],'height':image.shape[0],'capturedAt':time.time(),'target':self.connection,**backend_status}
         png = encode_png(image)
         (self.cache/'latest-game.png').write_bytes(png)
         return {'image':'data:image/png;base64,'+base64.b64encode(png).decode(),'width':image.shape[1],
-                'height':image.shape[0],'capturedAt':time.time(),'target':self.connection}
+                'height':image.shape[0],'capturedAt':time.time(),'target':self.connection,**backend_status}
 
     def analyze_image(self, image):
         from PIL import Image
@@ -246,6 +267,9 @@ class Service:
         self.info = None
         self.connection = None
         self.last = None
+        if self.capture_backend:
+            self.capture_backend.close()
+        self.capture_backend = None
         if self.client:
             self.client.disconnect()
         if self.agent:

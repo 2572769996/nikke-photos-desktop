@@ -30,9 +30,11 @@ class SearchPages:
     def is_page(self,expected):return self.owner.page==expected
     def ocr(self, roi, expected='.+'):
         owner = self.owner
-        assert roi == [735, 286, 375, 58]
+        assert roi in ([735, 286, 375, 58], [735, 286, 330, 58])
         hit = not owner.query if expected == '搜索妮姬的名字' else bool(re.search(expected, owner.query))
-        return {'hit': hit}
+        observed=owner.query
+        if owner.mode.startswith('queen-'):observed=observed.replace('（',' (').replace('）',')')+('|' if owner.mode=='queen-caret' else '')
+        return {'hit':hit,'detail':{'filtered':[{'text':observed}] if hit else []}}
 
 class SearchProbe(Collector):
     def __init__(self, mode):
@@ -60,8 +62,21 @@ class SearchProbe(Collector):
         if self.mode == 'wrong-page': self.page = 'unknown'
         elif self.mode == 'partial': self.query = name[:1]
         elif self.mode == 'duplicated': self.query = name+name
-        elif self.mode == 'success' or self.mode == 'first-missed' and len(self.texts) == 2: self.query = name
+        elif self.mode.startswith('queen-') or self.mode == 'success' or self.mode == 'first-missed' and len(self.texts) == 2: self.query = name
         return Job()
+
+for mode in ['queen-spacing','queen-caret']:
+    probe=SearchProbe(mode)
+    with patch('collection_worker.time.monotonic',lambda:probe.clock):probe.enter_search_text('QUEEN（真）')
+    assert probe.texts==['QUEEN（真）'] and probe.focuses==1
+
+from collection_vision import search_query_matches
+for text in ['QUEEN (真)','QUEEN（真）',' QUEEN  ( 真 ) |','ＱＵＥＥＮ（真）']:
+    assert search_query_matches('QUEEN（真）',[text]),text
+for text in ['', 'QUEEN', 'QUEEN (假)', 'QUEEN (真', 'QUEEN (真)X','QUEEN（真）QUEEN（真）','QUEEN (真)|×']:
+    assert not search_query_matches('QUEEN（真）',[text]),text
+assert search_query_matches('QUEEN（真）',['QUEEN','(真)','|'])
+assert search_query_matches('贝斯蒂：战术升级',['贝斯蒂:战术升级'])
 
 name = '贝斯蒂：战术升级'
 for mode, attempts in [('success', 1), ('first-missed', 2), ('delayed', 1), ('late-between-attempts',1)]:
@@ -102,6 +117,6 @@ for level in [6, 3]:
     assert np.array_equal(decoded, bgr)
 assert np.array_equal(np.asarray(Image.open(io.BytesIO(encode_png(bgr)))), bgr[:, :, ::-1])
 
-report = {'passed': True, 'gameInputs': 0, 'firstMissRefocusesOnce': True, 'delayedInputDoesNotDuplicate': True, 'partialTextDoesNotAppend': True, 'duplicateTextNeverAccepted': True, 'permanentFailureStopsBounded': True, 'nativeFailureAndCancelStop': True, 'existingTextPreserved': True, 'noWholeRoleRetryOnInputFailure': True, 'pngPixelsIdentical': True}
+report = {'passed': True, 'queenWidthSpacingCaret':True, 'strictFullNameNoWrongQualifier':True, 'gameInputs': 0, 'firstMissRefocusesOnce': True, 'delayedInputDoesNotDuplicate': True, 'partialTextDoesNotAppend': True, 'duplicateTextNeverAccepted': True, 'permanentFailureStopsBounded': True, 'nativeFailureAndCancelStop': True, 'existingTextPreserved': True, 'noWholeRoleRetryOnInputFailure': True, 'pngPixelsIdentical': True}
 (cache / 'result.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
 print(json.dumps({**report, 'evidence': str(cache)}))

@@ -60,7 +60,7 @@ def run(file):
         if state['elevated'] is not True:raise RuntimeError('管理员权限未实际授予，未继续输入')
         if (folder/'attempt.lock').exists():raise RuntimeError('本请求已保留过单次输入额度，禁止重放')
         check_cancel()
-        service=Service(folder/'runtime')
+        service=Service(folder/'runtime',capture_policy=request.get('capturePolicy','auto'))
         state['runtime']=service.initialize()
         targets=service.windows()['windows']
         target=next((t for t in targets if t['hwnd']==request['target']['hwnd'] and t['pid']==request['target']['pid']),None)

@@ -1,3 +1,4 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import CharacterGrid from '../components/CharacterGrid.jsx'
@@ -43,6 +44,7 @@ const loadFilterState = () => {
 }
 
 export default function MyNikkePage() {
+  const cnRevision = useCnRosterRevision()
   const restored = useMemo(loadFilterState, [])
   const [profile, setProfile] = useState(() => getCurrentProfile())
   const [codes, setCodes] = useState(() => fullyRecordedCodes(getCurrentProfileId()))
@@ -80,7 +82,7 @@ export default function MyNikkePage() {
   // 否则筛了武器还显示全量属性人数，点了会得到空列表
   const scoped = useMemo(
     () => applyFilters(completed, { search, selected, toggles }),
-    [completed, search, selected, toggles],
+    [completed, search, selected, toggles, cnRevision],
   )
 
   const elementCounts = useMemo(() => {

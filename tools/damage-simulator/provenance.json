@@ -1,0 +1,22 @@
+{
+  "repo": "Jgaram/nikke-calc",
+  "commit": "67835ca3033a95482749ea2db35a8ee2a0856a92",
+  "schemaVersion": 2,
+  "pythonVersion": "3.12.10",
+  "sources": [
+    {
+      "Name": "engine",
+      "Sha256": "d9664625efec9cb3991b9ea918185c27fe8f1f0c9a9a87a86bc756d5be8271f6",
+      "Url": "https://codeload.github.com/Jgaram/nikke-calc/zip/67835ca3033a95482749ea2db35a8ee2a0856a92",
+      "Zip": "engine-67835ca.zip",
+      "ExpectedSha256": "d9664625efec9cb3991b9ea918185c27fe8f1f0c9a9a87a86bc756d5be8271f6"
+    },
+    {
+      "Name": "python",
+      "Sha256": "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3",
+      "Url": "https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+      "Zip": "python-3.12.10-embed-amd64.zip",
+      "ExpectedSha256": "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
+    }
+  ]
+}

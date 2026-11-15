@@ -8,7 +8,16 @@ fs.mkdirSync(out, { recursive: true })
 const copy = (from, name) => fs.copyFileSync(path.join(root, from), path.join(out, name))
 for (const [from, name] of [
   ['LICENSE', 'project-GPL-3.0.txt'],
+  ['node_modules/opencc-js/LICENSE', 'opencc-js-MIT.txt'],
+  ['node_modules/opencc-js/THIRD_PARTY_LICENSES.md', 'opencc-js-third-party.txt'],
+  ['node_modules/opencc-js/LICENSES/Apache-2.0.txt', 'opencc-data-Apache-2.0.txt'],
   ['tools/core-dust/LICENSE', 'zbx-MIT.txt'],
+  ['tools/sr-collection/vendor/LICENSE', 'sr-collection-MIT.txt'],
+  ['tools/sr-collection/UPSTREAM.md', 'sr-collection-source.txt'],
+  ['tools/sr-collection/vendor/DISCLAIMER.md', 'sr-collection-disclaimer.txt'],
+  ['tools/damage-simulator/vendor/LICENSE', 'damage-simulator-MIT.txt'],
+  ['tools/damage-simulator/UPSTREAM.md', 'damage-simulator-source.txt'],
+  ['tools/damage-simulator/python/LICENSE.txt', 'damage-python-LICENSE.txt'],
   ['tools/equipment-reroll/LICENSE', 'workshop-GPL.txt'],
   ['automation/maanikke/vendor/LICENSE', 'maanikke-GPL.txt'],
   ['automation/maanikke/NOTICE', 'automation-notice.txt'],

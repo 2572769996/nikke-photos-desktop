@@ -34,7 +34,7 @@ test('four-gear boundary refuses unsupported constraints, invalid targets and gl
   const checks=[
     [x=>x.equipments[0].initialInput[0].forceKeep=true,/强制保留/],
     [x=>x.equipments[0].skipped=true,/不跑/],
-    [x=>x.characterTargets.push(...Array(3).fill({stat:'优越代码伤害增加',totalTier:1})),/1～3/],
+    [x=>x.characterTargets.push(...Array(6).fill({stat:'优越代码伤害增加',totalTier:1})),/1～6/],
     [x=>x.characterTargets[0].totalTier=61,/1～60/],
     [x=>x.characterTargets.push(x.characterTargets[0]),/重复/],
     [x=>x.p=2,/阈值/],
@@ -63,4 +63,24 @@ test('resourceCharacter runs in the shared cancellable Worker with isolated clon
   const input=fixture(),before=structuredClone(input)
   const result=await runCalculatorWorker('resourceCharacter',input,()=>{},factory)
   assert.equal(result.gears.length,4);assert.equal(result.approx,true);assert.deepEqual(input,before)
+})
+
+
+test('four and six independent goals reach the pinned four-gear solver unchanged',()=>{
+  const stats=['攻击力增加','优越代码伤害增加','暴击率增加','防御力增加','最大装弹数增加','蓄力速度增加']
+  for(const count of [4,6]){
+    const input={...fixture(),characterTargets:stats.slice(0,count).map((stat,i)=>({stat,totalTier:i===count-1?2:1})),equipments:[
+      {initialInput:stats.slice(0,3).map(stat=>line(stat,1))},
+      {initialInput:stats.slice(3,6).map(stat=>line(stat,1))},
+      {initialInput:[line(),line(),line()]},{initialInput:[line(),line(),line()]},
+    ]}
+    const before=structuredClone(input),{current,target}=prepareCharacter(input)
+    assert.equal(target.split(',').length,count)
+    const original=four.exports.solveCharacter(current,target,{epsilon:1e-9,maxIterations:10000,digits:6,ruleVersion:'cn',p:.1,usePrecise:true,solve:one.exports.solve})
+    const actual=solveResourceCharacter(input)
+    assert.deepEqual(actual.expected,plain(original.expected))
+    assert.deepEqual(actual.gears.map(({nextAction,stoneAction,...g})=>g),plain(original.gearActions))
+    assert.equal(actual.settings.characterTargets.length,count)
+    assert.deepEqual(input,before)
+  }
 })

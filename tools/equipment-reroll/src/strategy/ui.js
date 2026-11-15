@@ -6,7 +6,8 @@ import { CHARACTER_NOTE } from './character.js'
 import { describeGearGoals } from './character-goal-view.js'
 import './ui.css'
 
-const STORAGE_KEY = 'nikke-tools:workshop:strategy-compare:v1'
+import { IS_KEYS, STRATEGY, storageKey } from '../calculator-profile.js'
+const STORAGE_KEY = storageKey('nikke-tools:workshop:strategy-compare:v1')
 const clone = value => structuredClone(value)
 const escape = value => String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))
 const number = value => Number(value).toFixed(6).replace(/\.?0+$/,'') || '0'
@@ -33,7 +34,30 @@ export function installStrategyUI(api) {
   document.querySelector('.result-panel > .panel-header').after(ruleHelp)
   const characterTargets=document.createElement('section')
   characterTargets.id='key-character-targets';characterTargets.className='form-section';characterTargets.hidden=true
-  characterTargets.innerHTML=`<h3>秘钥模式 · 四装备角色目标</h3><p class="strategy-note">${CHARACTER_NOTE} 设置 1～3 个全部达成的独立词条目标；此模式不使用 Workshop 全局条件、单件候选池或“不跑”。</p><div class="character-target-rows">${[0,1,2].map(i=>`<div class="character-target-row"><label>目标 ${i+1}<select class="character-target-stat" aria-label="角色目标 ${i+1}">${STAT_NAMES.map(stat=>`<option>${stat}</option>`).join('')}</select></label><label>总档位 ≥ <input type="number" class="character-target-total" min="1" max="60" step="1" value="1" aria-label="角色目标 ${i+1} 总档位"></label></div>`).join('')}</div>`
+  characterTargets.innerHTML=`<h3>四装备角色目标（允许自订秘钥）</h3><p class="strategy-note">${CHARACTER_NOTE} 设置 1～6 个全部达成的独立词条目标；每件装备最多分配 3 种目标词条。</p><div class="character-target-rows"></div><div class="character-target-actions"><button type="button" class="button button-secondary" id="add-character-target">添加目标</button></div><p class="strategy-note character-rule-note">四装备仅支持旧规则；不使用全局最低条数、合计百分比、单件候选池或“不跑”。</p>`
+  function addCharacterTarget(value={}) {
+    const rows=characterTargets.querySelector('.character-target-rows')
+    if(rows.children.length>=6)return
+    const row=document.createElement('div');row.className='character-target-row'
+    row.innerHTML=`<label><span class="character-target-label"></span><select class="character-target-stat">${STAT_NAMES.map(stat=>`<option${stat==='空词条'?' selected':''}>${stat}</option>`).join('')}</select></label><label>总档位 ≥ <input type="number" class="character-target-total" min="1" max="60" step="1" value="1"></label><button type="button" class="remove-character-target" title="删除此目标">×</button>`
+    if(STAT_NAMES.includes(value.stat))row.querySelector('select').value=value.stat
+    if(Number.isInteger(value.totalTier)&&value.totalTier>=1&&value.totalTier<=60)row.querySelector('input').value=value.totalTier
+    row.querySelector('button').addEventListener('click',()=>{if(rows.children.length<=1)return;row.remove();refreshCharacterTargets();clearCurrent();invalidate();persist()})
+    rows.append(row);refreshCharacterTargets()
+  }
+  function refreshCharacterTargets() {
+    const rows=[...characterTargets.querySelectorAll('.character-target-row')]
+    rows.forEach((row,i)=>{
+      row.querySelector('.character-target-label').textContent=`目标 ${i+1}`
+      row.querySelector('select').setAttribute('aria-label',`角色目标 ${i+1}`)
+      row.querySelector('input').setAttribute('aria-label',`角色目标 ${i+1} 总档位`)
+      row.querySelector('button').setAttribute('aria-label',`删除角色目标 ${i+1}`)
+      row.querySelector('button').disabled=rows.length<=1
+    })
+    characterTargets.querySelector('#add-character-target').disabled=rows.length>=6
+  }
+  for(let i=0;i<3;i++)addCharacterTarget()
+  characterTargets.querySelector('#add-character-target').addEventListener('click',()=>{addCharacterTarget();clearCurrent();invalidate();persist()})
   document.querySelector('#global-target-mode').after(characterTargets)
   const result = document.createElement('section')
   result.id = 'resource-result'
@@ -62,10 +86,13 @@ export function installStrategyUI(api) {
   let before = null, busy = false, task = null, comparison = null, comparisonSignature = '', currentSignature = ''
   let stored = {}
   try { stored=JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {} } catch {}
-  if (stored.strategy === STRATEGIES.KEYS) mode.value = STRATEGIES.KEYS
+  mode.value = STRATEGY
+  mode.closest('label').hidden = true
+  controls.querySelector('.threshold-field').hidden = !IS_KEYS
   if (typeof stored.p === 'number' && Number.isFinite(stored.p) && stored.p>=0 && stored.p<=1) p.value=String(stored.p)
   before=safeBoard(stored.before)
-  if(Array.isArray(stored.characterTargets)) for(const [i,t] of stored.characterTargets.slice(0,3).entries()) {
+  if(Array.isArray(stored.characterTargets)) for(const [i,t] of stored.characterTargets.slice(0,6).entries()) {
+    if(i>=characterTargets.querySelectorAll('.character-target-row').length)addCharacterTarget()
     const row=characterTargets.querySelectorAll('.character-target-row')[i]
     if(STAT_NAMES.includes(t.stat))row.querySelector('select').value=t.stat
     if(Number.isInteger(t.totalTier)&&t.totalTier>=1&&t.totalTier<=60)row.querySelector('input').value=t.totalTier
@@ -73,7 +100,7 @@ export function installStrategyUI(api) {
   const fill = (container,rows) => api.fillRows(container,clone(rows).map(row=>({...row,locked:!!row.flagged})))
   if (safeBoard(stored.after)) fill(afterRows,stored.after)
   const isSingle = () => api.collectionSelect.value === 'single-equipment'
-  if(!isSingle())mode.value=STRATEGIES.STONE
+  mode.value=STRATEGY
   const readCharacterTargets=()=>[...characterTargets.querySelectorAll('.character-target-row')].map(row=>({stat:row.querySelector('select').value,totalTier:Number(row.querySelector('input').value)})).filter(t=>t.stat!=='空词条')
   const settings = () => ({scope:isSingle()?'single':'character',strategy:mode.value,calculationRule:api.calculationRuleSelect.value,
     p:p.value.trim()==='' ? NaN : Number(p.value),targetInput:clone(api.readRows(api.targetRows)),characterTargets:readCharacterTargets()})
@@ -82,7 +109,7 @@ export function installStrategyUI(api) {
   const fingerprint = () => JSON.stringify({settings:settings(),before,after:api.readRows(afterRows),live:api.readRows(api.initialRows)})
   function persist() {
     const value=p.value.trim()===''?NaN:Number(p.value)
-    try {localStorage.setItem(STORAGE_KEY,JSON.stringify({strategy:mode.value,p:Number.isFinite(value)&&value>=0&&value<=1?value:null,before,after:api.readRows(afterRows),characterTargets:readCharacterTargets()}))} catch {}
+    try {localStorage.setItem(STORAGE_KEY,JSON.stringify({strategy:mode.value,p:Number.isFinite(value)&&value>=0&&value<=1?value:null,before,after:api.readRows(afterRows),characterTargets:[...characterTargets.querySelectorAll('.character-target-row')].map(row=>({stat:row.querySelector('select').value,totalTier:Number(row.querySelector('input').value)}))}))} catch {}
   }
   function clearCurrent() { result.hidden=true; result.replaceChildren(); currentSignature='' }
   function invalidate() {
@@ -96,10 +123,17 @@ export function installStrategyUI(api) {
   }
   function sync() {
     const single=isSingle()
-    mode.disabled=busy
+    mode.value=STRATEGY
+    mode.disabled=true
     p.disabled=busy || mode.value!==STRATEGIES.KEYS
     compare.hidden=!single
     const keys=mode.value===STRATEGIES.KEYS
+    const oldRuleOnly=keys&&!single
+    const newRule=api.calculationRuleSelect.querySelector('[value="global-current"]')
+    newRule.disabled=oldRuleOnly
+    if(oldRuleOnly&&api.calculationRuleSelect.value!=='cn-legacy'){api.calculationRuleSelect.value='cn-legacy';api.calculationRuleSelect.dispatchEvent(new Event('change',{bubbles:true}))}
+    api.calculationRuleSelect.disabled=busy
+    api.calculationRuleSelect.title=oldRuleOnly?'四装备目前仅支持旧规则':''
     characterTargets.hidden=single || !keys
     if(!single) {
       find('setup-description').textContent=keys?'设置四件装备当前词条，以及跨装备的角色总档位目标。':api.calculationModeSelect.value==='global'?'设置跨四件装备的最低条数、合计数值和总目标词条数。':'词条不可重复；选择词条后，档位默认设为第 10 档。'
@@ -114,10 +148,10 @@ export function installStrategyUI(api) {
     find('result').hidden=keys
     find('details-tab').hidden=keys
     if(keys && find('details-tab').getAttribute('aria-selected')==='true') find('result-tab').click()
-    ruleHelp.textContent=api.calculationRuleSelect.value==='cn-legacy'?'允许同一词条栏位再次出现完全相同的效果和数值':'同一词条栏位再次抽到完全相同的效果和数值时，会重新抽取；空词条仍可能重复'
+    ruleHelp.textContent=api.calculationRuleSelect.value==='cn-legacy'?'旧规则：允许同一词条栏位再次出现完全相同的效果和数值':'新规则：同一词条栏位再次抽到完全相同的效果和数值时，会重新抽取；空词条仍可能重复'
     find('resource-support').textContent=!single && keys
-      ? 'zbx 四装备候选分配近似：仅支持旧规则、1～3 个独立总档位目标；不支持强制保留、候选选 3、合并目标或“不跑”。60 秒超时或求解失败会明确报错，不切换算法。'
-      : !single ? '默认使用 Workshop 原四装备规划，保留最低条数、合计百分比、单件目标与原有约束；可选择允许使用自订秘钥，单独设置角色总档位目标。'
+      ? 'zbx 四装备候选分配近似：仅支持旧规则、1～6 个独立总档位目标；不支持强制保留、候选选 3、合并目标或“不跑”。60 秒超时或求解失败会明确报错，不切换算法。'
+      : !single ? '默认使用 Workshop 原四装备规划，保留最低条数、合计百分比、单件目标与原有约束。秘钥方案请使用独立的秘钥策略计算器。'
       : keys
         ? `仅支持至多 3 个全部达成目标；不忽略强制保留约束。p 改善概率必须严格大于阈值，先最少石头、再最少秘钥。${api.calculationRuleSelect.value==='cn-legacy' ? 'zbx cn 允许保留结果，与 Workshop 旧规则直接覆盖不同；只以 zbx 自身全石头值衡量秘钥收益。' : 'zbx global 使用上游压缩状态，若触发档位平均退化将拒绝结果。'}`
         : '保留 Workshop 原求解器、规则、候选目标和强制保留；下方对比也可用原全石头模式。'
@@ -208,8 +242,8 @@ export function installStrategyUI(api) {
   })
   find('compare-restore').addEventListener('click',()=>{if(before)apply(before,'已恢复保留的原盘面，没有修改正式角色存档。')})
   cancel.addEventListener('click',()=>task?.cancel())
-  mode.addEventListener('change',()=>{clearCurrent();api.clearSingleOutput();api.clearGlobalPlanOutputs();sync();persist()})
-  api.collectionSelect.addEventListener('change',()=>{mode.value=STRATEGIES.STONE;clearCurrent();queueMicrotask(sync)})
+  mode.addEventListener('change',()=>{mode.value=STRATEGY;clearCurrent();api.clearSingleOutput();api.clearGlobalPlanOutputs();sync();persist()})
+  api.collectionSelect.addEventListener('change',()=>{mode.value=STRATEGY;clearCurrent();queueMicrotask(()=>{sync();persist()})})
   for(const type of ['input','change'])document.addEventListener(type,event=>{
     if(busy)return
     if(event.target.closest('#compare-panel, #classic-equipment-mode, #character-equipment-mode, #key-character-targets') || event.target===api.calculationModeSelect || event.target===api.calculationRuleSelect || event.target===mode || event.target===p)queueMicrotask(()=>{invalidate();sync();persist()})

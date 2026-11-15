@@ -299,7 +299,7 @@ export default function CharacterPage() {
             <h1>{displayName(character)}</h1>
             {character.isCustom ? <span className="custom-local-badge">{t('自定义 · 仅本机使用')}</span> : null}
             <div className="desc">
-              {character.isCustom ? t('本地自定义妮姬') : `${character.nameEn} · ${character.nameCode}`} · {dataState}
+              {character.isCustom ? t('本地自定义妮姬') : character.nameEn || displayName(character)} · {dataState}
             </div>
           </div>
         </div>

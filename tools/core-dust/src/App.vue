@@ -67,10 +67,10 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { QuestionFilled } from '@element-plus/icons-vue'
 
 /**
- * 国服「普通模式」最新进度关卡（章节前缀，如 '40-36'）。
+ * 国服「普通模式」最新进度关卡（章节前缀，如 '42-44'）。
  * ★ 每次国服更新章节后，只需要修改这一处。
  */
-const CN_LATEST_EASY_STAGE = '40-36'
+const CN_LATEST_EASY_STAGE = '42-44'
 
 // 数据引用
 const selectedCnLevelCorrection = ref(3)

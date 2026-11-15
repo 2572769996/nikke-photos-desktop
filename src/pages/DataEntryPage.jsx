@@ -1,3 +1,4 @@
+import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import FilterBar from '../components/FilterBar.jsx'
@@ -33,6 +34,7 @@ const formatTime = (iso) => {
 
 /** 数据录入页：左侧选择角色，右侧录入角色数据与装备词条（卡片效果在「角色详情」查看） */
 export default function DataEntryPage() {
+  const cnRevision = useCnRosterRevision()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -54,6 +56,8 @@ export default function DataEntryPage() {
   const [dirty, setDirty] = useState(false)
   const [recordOwner, setRecordOwner] = useState(selectedCode)
   const [saveError, setSaveError] = useState('')
+  const [fieldsValid, setFieldsValid] = useState(true)
+  const [formRevision, setFormRevision] = useState(0)
   const [recorded, setRecorded] = useState(() => new Set(recordedCodes()))
   const [synchroLevel, setSynchroLevelState] = useState(() => getSynchroLevel())
   const [research] = useState(() => getResearch())
@@ -76,6 +80,7 @@ export default function DataEntryPage() {
     setSavedAt(stored?.updatedAt ?? null)
     setDirty(false)
     setSaveError('')
+    setFieldsValid(true)
   }, [selectedCode])
 
   // 变更即落库（无防抖）：录入页没有拖动类高频操作，避免防抖窗口内切换角色丢失最后一次编辑
@@ -90,14 +95,15 @@ export default function DataEntryPage() {
     } catch (error) { setSaveError(`尚未保存：${error.message}`) }
   }, [dirty, selectedCode, record, recordOwner])
 
-  const pool = useMemo(() => cnOnly ? CHARACTERS.filter(isCnCharacter) : CHARACTERS, [cnOnly, CHARACTERS])
+  const pool = useMemo(() => cnOnly ? CHARACTERS.filter(isCnCharacter) : CHARACTERS, [cnOnly, CHARACTERS, cnRevision])
   const list = useMemo(() => applyFilters(pool, { search }), [pool, search])
 
-  const dataState = saveError ? '存在未保存的修改' : hasStored
+  const dataState = !fieldsValid ? '存在无效输入，请修正红框字段' : saveError ? '存在未保存的修改' : hasStored
     ? (savedAt ? `${t('已保存到本机')} · ${formatTime(savedAt)}` : t('已保存到本机'))
     : sample ? t('示例数据，未保存到本机') : t('暂无录入数据')
 
   const handleClearStored = () => {
+    setFormRevision(value => value + 1)
     removeRecord(selectedCode)
     setRecord(sample ?? {})
     setHasStored(false)
@@ -108,6 +114,7 @@ export default function DataEntryPage() {
   }
 
   const handleRestoreSample = () => {
+    setFormRevision(value => value + 1)
     setRecord(sample ?? {})
     setDirty(true)
   }
@@ -237,16 +244,18 @@ export default function DataEntryPage() {
                   {character.avatar ? <img className="avatar" src={assetUrl(character.avatar)} alt={displayName(character)} /> : null}
                   <div>
                     <h2>{displayName(character)}</h2>
-                    <div className="desc">{character.isCustom ? t('本地自定义妮姬') : `${character.nameEn} · ${character.nameCode}`} · {dataState}</div>
+                    <div className="desc">{character.isCustom ? t('本地自定义妮姬') : character.nameEn || displayName(character)} · {dataState}</div>
                   </div>
                 </div>
                 <div className="head-actions">
-                  <button type="button" className="btn" onClick={() => setSchemeOpen(true)}>{t('方案管理')}</button>
+                  <button type="button" className="btn" onClick={() => setSchemeOpen(true)}>{t('录入模板')}</button>
                   <Link className="btn" to={`/character/${character.nameCode}`}>{t('查看角色详情')}</Link>
                 </div>
               </div>
               {saveError && <p className="dlg-error" role="alert">{saveError}。请修正装备词条后继续；磁盘中的记录未被覆盖。</p>}
-              <CharacterForm
+              {recordOwner === selectedCode && <CharacterForm
+                key={`${getCurrentProfileId()}/${selectedCode}/${formRevision}`}
+                onValidityChange={setFieldsValid}
                 character={character}
                 value={record}
                 onChange={(next) => {
@@ -265,7 +274,7 @@ export default function DataEntryPage() {
                 hasSample={Boolean(sample)}
                 onClearStored={handleClearStored}
                 onRestoreSample={handleRestoreSample}
-              />
+              />}
             </>
           ) : (
             <div className="empty">

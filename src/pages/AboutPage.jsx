@@ -49,12 +49,32 @@ export default function AboutPage() {
       <h2 id="about-project-license">软件许可</h2>
       <p>本项目原创代码采用 GNU GPL v3（GPL-3.0-only）。第三方组件保留各自的版权及许可，图片等素材不自动包含在代码许可中。</p>
       <Document title="本软件 GPL v3 许可全文" file="about/project-GPL-3.0.txt"/>
-      {fullSource ? <a className="about-download" href={local('about/NIKKE-Photos-v1.0-source.zip')} download>下载 v1.0 对应应用源码（含构建说明）</a> : null}
+      {fullSource ? <a className="about-download" href={local(`about/NIKKE-Photos-v${CURRENT_VERSION}-source.zip`)} download>下载 v{CURRENT_VERSION} 对应应用源码（含构建说明）</a> : null}
     </section>
 
     <section className="about-section" aria-labelledby="about-components">
       <h2 id="about-components">第三方项目</h2>
       <p className="about-intro">感谢以下项目与数据贡献者。许可原文可离线阅读，来源地址可选中复制。</p>
+      <article className="about-item"><h3>同步器升级计算</h3>
+        <p>界面及库存规划算法由本项目实现。升级消耗按用户指定的 Prydwen Level requirements 表录入，分段按升到的等级计算；800+ 档仅使用至 1000 级。基地小时产出复用红球计算器已有 doro112 表（版本 202507，800 级）。</p>
+        <p>大月卡箱 30/10/10 小时由用户确认；三选一箱 3/1/1 小时参考 NIKKE Synergy 的公开箱子定义。核对日期：2026-11-15。未复制这些网站的页面或计算代码。</p>
+        <Source>https://www.prydwen.gg/nikke/guides/level-requirements<br/>https://nikkeoutpost.netlify.app/outpost.json<br/>https://nikke-synergy.com/outpost_en</Source>
+      </article>
+      <article className="about-item"><h3>主线剧情与简体转换</h3>
+        <p>主线目录与正文来自 BlaBlaLink 的公开剧情资源，剧情版权归原权利人。软件按用户选择下载到本机供阅读，正文简体展示使用 OpenCC JS 1.4.2。</p>
+        <Source>https://www.blablalink.com/shiftyspad/scene-list<br/>https://github.com/nk2028/opencc-js</Source>
+        <Document title="OpenCC JS MIT 许可" file="about/opencc-js-MIT.txt"/>
+        <Document title="OpenCC 字典与第三方来源说明" file="about/opencc-js-third-party.txt"/>
+        <Document title="OpenCC 字典 Apache 2.0 许可" file="about/opencc-data-Apache-2.0.txt"/>
+      </article>
+      <article className="about-item"><h3>编队伤害模拟 <span>MIT</span></h3>
+        <p>使用 Jgaram 的 nikke-calc Python 计算核心，固定上游源码保持原样。简体中文编队界面、档案快照导入与本地计算桥由本项目实现；新角色及机制跟随上游。Copyright © 2026 Jgaram。</p>
+        <p>界面操作结构参考 DILDORO；未使用其未公开的服务端计算实现。独立 Python 3.12.10 仅用于本地伤害计算。</p>
+        <Source>https://github.com/Jgaram/nikke-calc<br/>固定提交：67835ca3033a95482749ea2db35a8ee2a0856a92<br/>交互参考：https://dildoro.com/</Source>
+        <Document title="伤害计算核心 MIT 许可" file="about/damage-simulator-MIT.txt"/>
+        <Document title="核心来源与桌面适配说明" file="about/damage-simulator-source.txt"/>
+        <Document title="独立计算 Python 许可" file="about/damage-python-LICENSE.txt"/>
+      </article>
       <article className="about-item"><h3>红球计算器 <span>MIT</span></h3>
         <p>基于 zbxzbx98 的 NikkeCalc.vue，保留原始计算与查表算法，调整桌面布局、本地资源与设置存储。Copyright © 2024 zbxzbx98。</p>
         <p>原始关卡与产出数据来源：doro112 / nikkeoutpost。</p>
@@ -73,6 +93,13 @@ export default function AboutPage() {
         <p>复用 zbxzbx98 的秘钥求解器、模拟器、四装备求解器及档位范围。原始组件保留 MIT 许可，桌面集成适配沿用 GPL-3.0-or-later。Copyright © 2024 zbxzbx98。</p>
         <Source>https://github.com/zbxzbx98/zbxzbx98.github.io<br/>固定提交：4a2d9a5219919c3b88b7c1f9eff85ad8424e1d6b</Source>
         <Document title="zbx 原始组件许可全文" file="tools/equipment-reroll/ZBX-LICENSE.txt"/>
+      </article>
+      <article className="about-item"><h3>收藏品强化规划器 <span>MIT</span></h3>
+        <p>基于 SHIKI1255 的 NIKKE SR 收藏品强化规划器 1.4.0，保留原计算引擎、2026-07-29 规则基线与本地库存历史；适配桌面工具入口、主题及独立存储来源。Copyright © 2026 SHIKI1255。</p>
+        <Source>https://github.com/SHIKI1255/nikke-sr-collection-planner<br/>固定提交：e9f3d9462241cd48a9cb4fb2bbc51a68c2e21049</Source>
+        <Document title="收藏品规划器 MIT 许可全文" file="about/sr-collection-MIT.txt"/>
+        <Document title="收藏品规划器来源与修改记录" file="about/sr-collection-source.txt"/>
+        <Document title="收藏品规划器原项目免责声明" file="about/sr-collection-disclaimer.txt"/>
       </article>
       <article className="about-item"><h3>自动化开发组件 <span>MaaNikke · GPL-3.0</span></h3>
         <p>装备采集复用 MaaNikke 的部分识别、资源与 Agent，基于 MaaFramework 5.12.2；模型来源为 PaddleOCR PP-OCRv6。其他框架、依赖与模型的条款须分别核对，不统一视作 MaaNikke 的代码许可。</p>
