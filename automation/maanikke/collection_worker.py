@@ -14,28 +14,46 @@ sys.dont_write_bytecode=True
 from worker import Service,ROOT,encode_png
 from admin_once import owner_alive
 from win32_metadata import elevation
-from check_occluded_capture import coverage
 from collection_roster import load_collection_roster
 from collection_vision import candidates,choose_candidate,normalized_name,safe_point,element,name_fragment_matches,popup_outside_box,search_query_matches
-from collection_vision import popup_surface_ready,popup_signature,popup_unchanged
+from collection_vision import popup_surface_ready,popup_signature,popup_unchanged,active_nav_button,HOME_BUTTON,BACK_BUTTON
+from collection_vision import LAYOUT_SIZE,navigation_frame
 
 PROJECT=ROOT.parents[1]
+SHOP_NAMES={'paid_shop':'付费商店','department_store':'百货商店'}
+HOME_PAGE_NAMES={**SHOP_NAMES,'outpost':'前哨基地','ark':'方舟'}
+OUTPOST_BUTTONS=(
+    ('outpost-command', [912,877,96,66]),
+    ('outpost-recycling', [1059,888,64,62]),
+    ('outpost-elevator', [877,995,67,54]),
+)
+ARK_CARD_LABELS=(
+    ('ark-lost-sector', [820,312,92,39]),
+    ('ark-tribe-tower', [1046,399,94,40]),
+    ('ark-simulation-room', [737,584,79,40]),
+    ('ark-arena', [1087,684,80,42]),
+    ('ark-interception', [793,873,79,40]),
+    ('ark-solo-raid-museum', [969,966,137,39]),
+)
 SLOTS=[('head','头',[1616,741,83,69]),('chest','胸',[1750,748,83,69]),('hands','手',[1616,844,83,69]),('legs','腿',[1750,856,83,69])]
 class Cancelled(Exception):pass
 class PageDeviation(Exception):pass
 class SkipRole(Exception):pass
 class PopupDismissalUnconfirmed(Exception):pass
+class HomeReturnUnconfirmed(Exception):pass
 class SearchInputUnconfirmed(Exception):pass
 
 def atomic(file,data):
     temp=file.with_suffix('.next');temp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8');temp.replace(file)
 
 class Pages:
-    def __init__(self,service):self.s=service;self.cache={};self.preferred_artwork={};self.timings={}
-    def reset(self):self.cache={}
+    def __init__(self,service):self.s=service;self.preferred_artwork={};self.timings={};self.reset()
+    def reset(self):
+        self.cache={}
+        self.image=navigation_frame(self.s.last)
     def recognize(self,kind,params):
         started=time.monotonic()
-        try:return self.s.recognize(kind,params,self.s.last)
+        try:return self.s.recognize(kind,params,self.image)
         finally:
             value=self.timings.setdefault(kind,{'count':0,'seconds':0.0})
             value['count']+=1;value['seconds']+=time.monotonic()-started
@@ -47,10 +65,34 @@ class Pages:
         key=('match',name,tuple(roi),threshold)
         if key not in self.cache:self.cache[key]=self.recognize('TemplateMatch',{'template':['collection/'+name+'.png'],'roi':roi,'threshold':[threshold]})
         return self.cache[key]
+    def home_button(self):
+        result=self.match('home-button',[0,965,320,115],.92)
+        if result['hit'] and active_nav_button(self.image,result['box'],HOME_BUTTON):
+            return result['box']
+        return None
+    def home_button_with_back(self):
+        home=self.home_button()
+        if not home:return None
+        x,y,_,_=home
+        # In the reference strip the back artwork starts 136 px left and 1 px above the house.
+        left=max(0,x-140)
+        width=x-28-left
+        if width<BACK_BUTTON.shape[1]:return None
+        back=self.match('nav-back',[left,y-4,width,34],.92)
+        if back['hit'] and active_nav_button(self.image,back['box'],BACK_BUTTON):
+            return home
+        return None
     @staticmethod
     def texts(result):
         detail=result.get('detail') or {}
         return [str(e.get('text','')) for e in detail.get('filtered',[]) if isinstance(e,dict)]
+    def matches_two(self,templates):
+        hits=0
+        for name,roi in templates:
+            if self.match(name,roi,.9)['hit']:
+                hits+=1
+                if hits==2:return True
+        return False
     def page(self):
         if 'page' in self.cache:return self.cache['page']
         close=self.match('close',[680,0,560,280])
@@ -60,9 +102,15 @@ class Pages:
             else:page='equipment_unknown'
         elif self.ocr([0,0,160,65],'详细信息')['hit'] and self.ocr([20,275,140,55],'妮姬信息')['hit']:page='detail'
         elif self.ocr([0,0,160,65],'^妮姬$')['hit'] and self.ocr([1070,190,185,65],'战斗力')['hit']:page='list'
+        elif self.matches_two(OUTPOST_BUTTONS):page='outpost'
         else:
             central=sum(self.ocr(roi,text)['hit'] for roi,text in [([410,770,350,180],'前哨基地'),([1180,640,340,180],'方舟'),([1160,790,370,180],'作战出击'),([400,650,340,150],'商店')])
-            page='hall' if central>=2 and self.ocr([1790,205,130,300],'任务|好友|联盟')['hit'] else 'unknown'
+            if central>=2 and self.ocr([1790,205,130,300],'任务|好友|联盟')['hit']:
+                page='hall'
+            else:
+                titles=self.texts(self.ocr([8,24,78,31],r'^.+商店$'))
+                page=next((key for key,name in SHOP_NAMES.items() if name in titles),'unknown')
+                if page=='unknown' and self.matches_two(ARK_CARD_LABELS):page='ark'
         self.cache['page']=page;return page
     def is_page(self,expected):
         if 'page' in self.cache:return self.cache['page']==expected
@@ -76,7 +124,7 @@ class Pages:
         return self.cache[key]
     def detail_matches(self,character):
         if self.page()!='detail':return False
-        expected=character['element'];actual=element(self.s.last,[1595,621,53,56])
+        expected=character['element'];actual=element(self.image,[1595,621,53,56])
         if actual!=expected:return False
         names=self.texts(self.ocr([1725,220,150,65]))
         if any(name_fragment_matches(character['nameCn'],text) for text in names):return True
@@ -105,12 +153,12 @@ class Pages:
             self.cache[key]={'hit':any(r['hit'] for r in results),'results':results}
         return self.cache[key]
     def equipment_tab(self):
-        b,g,r=map(int,self.s.last[735,1563])
+        b,g,r=map(int,self.image[735,1563])
         return b>150 and b>r+50
     def slot_state(self,index):
         box=SLOTS[index][2];x,y,w,h=box
         if self.match('empty-'+str(index),[x-12,y-15,w+25,h+34],.80)['hit']:return 'unequipped'
-        crop=self.s.last[y:y+h,x:x+w].astype('int16')
+        crop=self.image[y:y+h,x:x+w].astype('int16')
         if float(((crop.max(2)-crop.min(2))>40).mean())>.045:return 'equipped'
         return 'unknown'
 
@@ -120,6 +168,7 @@ class Collector:
         self.service_factory=service_factory;self.pages_factory=pages_factory;self.permission=permission or (lambda:elevation(os.getpid()) is True)
         self.state={'phase':'initializing','currentIndex':0,'currentName':'','slot':'','inputRequests':0,'updatedAt':time.time()}
         self.started=time.monotonic();self.frame_captured_at=None
+        self.frame_size=None
         self.timings={}
     def timing(self,kind,started):
         value=self.timings.setdefault(kind,{'count':0,'seconds':0.0})
@@ -141,9 +190,6 @@ class Collector:
             time.sleep(.1)
         if paused:self.progress(phase)
         if input_action:
-            if self.s.connection not in self.s.windows()['windows']:raise PageDeviation('游戏窗口身份已变化')
-            info=coverage(int(self.s.connection['hwnd']))
-            if info['minimized'] or not info['visible'] or info['clientRect'][2:]!=[1920,1080]:raise PageDeviation('请保持1920×1080游戏窗口未最小化')
             # Do not send input while a user modifier/Alt+Tab gesture is held.
             deadline=time.monotonic()+2
             while any(ctypes.windll.user32.GetAsyncKeyState(key)&0x8000 for key in (0xA4,0xA5,9,17,16,1)):
@@ -169,7 +215,13 @@ class Collector:
         if not result.get('ok'):raise RuntimeError(result.get('error','截图处理失败'))
         return result.get('result')
     def capture(self,record=True):
-        self.guard();started=time.monotonic();captured=self.s.capture(export=False) or {};self.frame_captured_at=time.monotonic();self.pages.reset();self.timing('captureBgr',started)
+        self.guard();started=time.monotonic();captured=self.s.capture(export=False)
+        size=self.s.last.shape[1::-1]
+        if self.frame_size is not None and self.frame_size!=size:
+            raise RuntimeError('采集期间游戏客户区尺寸已改变，请重新启动采集')
+        self.pages.reset()
+        self.frame_size=size
+        self.frame_captured_at=time.monotonic();self.timing('captureBgr',started)
         backend=captured.get('captureBackend')
         if backend and backend!=self.state.get('captureBackend'):
             self.progress(self.state['phase'],captureBackend=backend,captureFallback=captured.get('captureFallback',False))
@@ -185,27 +237,40 @@ class Collector:
                 self.save_timings();return
             self.delay(interval)
         raise PageDeviation('等待页面确认超时：'+label)
-    def input(self,label,call,click=None):
+    def input(self,label,call=None,locate=None):
         self.guard(True)
         if self.actions>=30*len(self.request['characters'])+25:raise RuntimeError('动作预算用尽')
+        click=locate() if locate else None
+        # inspect() rechecks the bound window identity, visibility and physical client size.
+        size=self.s.capture_backend.inspect()['size']
+        if size!=self.frame_size:
+            raise RuntimeError('输入前游戏客户区尺寸已改变，请重新启动采集')
+        if click:
+            click['clientSize']=size
+            click['clientPoint']=[round(p*n/base) for p,n,base in zip(click['point'],size,LAYOUT_SIZE)]
         self.actions+=1
         with (self.folder/'actions.jsonl').open('a',encoding='utf-8') as log:
             log.write(json.dumps({'index':self.actions,'action':label,'reservedAt':time.time(),**({'click':click} if click else {})},ensure_ascii=False)+'\n');log.flush();os.fsync(log.fileno())
         self.progress(label)
         started=time.monotonic()
         try:
-            if not call().wait().succeeded:raise RuntimeError('输入请求失败，未重试：'+label)
+            job=self.s.controller.post_click(*click['clientPoint']) if click else call()
+            if not job.wait().succeeded:raise RuntimeError('输入请求失败，未重试：'+label)
         finally:self.timing('nativeInput',started)
     def click(self,label,box,allowed,fresh=True):
-        age=None if self.frame_captured_at is None else time.monotonic()-self.frame_captured_at
-        reused=not fresh and age is not None and 0<=age<=.75
-        if not reused:self.capture(False)
-        valid=self.pages.is_page('list') if allowed=={'list'} else self.pages.page() in allowed
-        if not valid:raise PageDeviation('点击前页面已改变：'+label)
-        point=safe_point(box)
-        self.state['lastClick']={'targetBox':box,'point':point}
-        frame_age=None if self.frame_captured_at is None else round((time.monotonic()-self.frame_captured_at)*1000,2)
-        self.input(label,lambda:self.s.controller.post_click(*point),click={'targetBox':box,'point':point,'sampling':'inner-50-percent','reusedFrame':reused,'frameAgeMs':frame_age})
+        def locate():
+            age=None if self.frame_captured_at is None else time.monotonic()-self.frame_captured_at
+            reused=not fresh and age is not None and 0<=age<=.75
+            if not reused:self.capture(False)
+            valid=self.pages.is_page('list') if allowed=={'list'} else self.pages.page() in allowed
+            if not valid:raise PageDeviation('点击前页面已改变：'+label)
+            target=box() if callable(box) else box
+            if target is None:raise PageDeviation('点击前未找到可用按钮：'+label)
+            point=safe_point(target)
+            self.state['lastClick']={'targetBox':target,'point':point}
+            frame_age=None if self.frame_captured_at is None else round((time.monotonic()-self.frame_captured_at)*1000,2)
+            return {'targetBox':target,'point':point,'sampling':'inner-50-percent','reusedFrame':reused,'frameAgeMs':frame_age}
+        self.input(label,locate=locate)
     def recognized_click(self,label,result,allowed,fresh=True):
         if not result['hit']:raise PageDeviation('未识别明确入口：'+label)
         self.click(label,result['box'],allowed,fresh=fresh)
@@ -228,6 +293,17 @@ class Collector:
                 if target=='hall':self.wait(lambda:self.pages.page()==target,'确认'+target,initial=0,record=False,interval=.25)
                 return
             if page in ('overload','non_overload','equipment_unknown'):self.close_popup();continue
+            if target=='hall' or page=='unknown' or page in HOME_PAGE_NAMES:
+                page_name=HOME_PAGE_NAMES.get(page)
+                locate_home=self.pages.home_button_with_back if page=='unknown' else self.pages.home_button
+                if locate_home():
+                    label=f'从{page_name}点小房子返回大厅' if page_name else '点小房子返回大厅'
+                    self.click(label,locate_home,{page})
+                    try:self.wait(lambda:self.pages.page()=='hall','确认小房子已返回大厅',initial=.7)
+                    except PageDeviation as error:raise HomeReturnUnconfirmed('已点击小房子，但未确认返回大厅，采集已停止') from error
+                    if target=='hall':return
+                    continue
+                if page_name:raise PageDeviation(f'已识别{page_name}，未找到可用的小房子，请关闭弹窗或手动返回大厅')
             if page=='detail':
                 self.recognized_click('返回角色列表',self.pages.ocr([0,990,140,65],'返回'),{'detail'},fresh=False)
                 self.wait(lambda:self.pages.is_page('list'),'确认返回列表',initial=.15,interval=.2,record=False)
@@ -239,7 +315,7 @@ class Collector:
             if page=='hall' and target=='list':
                 self.recognized_click('进入妮姬列表',self.pages.ocr([675,945,145,130],'^妮姬$'),{'hall'})
                 self.wait(lambda:self.pages.is_page('list'),'确认妮姬列表',initial=1.5);return
-            raise PageDeviation('无法识别安全恢复路线；请手动调整到大厅或妮姬列表')
+            raise PageDeviation('未识别当前页面，左下角未确认成组的蓝色“返回”和小房子，请手动返回大厅或妮姬列表')
         raise PageDeviation('已达到受限恢复次数，请检查游戏页面')
     def query_matches(self,name):
         # Stop before the clear icon (x≈1076); it was intermittently merged
@@ -284,9 +360,9 @@ class Collector:
         stable={'key':None,'n':0,'items':[]}
         def results_ready():
             if not self.pages.is_page('list') or not self.query_matches(name):return False
-            items=candidates(self.s.last,details=False)
+            items=candidates(self.pages.image,details=False)
             if len(items)>8:return False # Still showing the unfiltered grid.
-            if len(items)>1:items=candidates(self.s.last)
+            if len(items)>1:items=candidates(self.pages.image)
             key=[(i['box'],i.get('element'),i.get('burst')) for i in items]
             stable['n']=stable['n']+1 if stable['key']==key else 1;stable.update(key=key,items=items)
             return stable['n']>=2
@@ -336,8 +412,8 @@ class Collector:
         while time.monotonic()<deadline:
             self.capture(False)
             # Cheap pixel checks reject fading/moving frames before template/OCR.
-            if popup_surface_ready(self.s.last):
-                current=popup_signature(self.s.last)
+            if popup_surface_ready(self.pages.image):
+                current=popup_signature(self.pages.image)
                 if previous is not None and time.monotonic()-started>=.45 and popup_unchanged(previous,current):
                     self.timing('popupVisualWait',started)
                     classified=time.monotonic();page=self.pages.page();self.timing('popupClassification',classified)
@@ -385,6 +461,7 @@ class Collector:
                 if self.s:self.s.close()
 
 def main(file):
+    ctypes.windll.user32.SetThreadDpiAwarenessContext(ctypes.c_void_p(-4))
     file=Path(file).resolve();folder=file.parent
     if file.name!='request.json' or folder.parent.name!='maanikke-collection' or str(uuid.UUID(folder.name))!=folder.name:raise RuntimeError('Invalid collection request path')
     request=json.loads(file.read_text('utf-8-sig'))

@@ -1,8 +1,11 @@
 """State-machine simulation: no native library, no game, no UAC."""
 import json
+import os
 import re
 import sys
 import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
 from pathlib import Path
 sys.dont_write_bytecode=True
 project=Path(__file__).resolve().parents[1];sys.path.insert(0,str(project/'automation/maanikke'))
@@ -12,6 +15,7 @@ class Job:
     succeeded=True
     def wait(self):return self
 class FakeService:
+    capture_backend=SimpleNamespace(inspect=lambda:{'size':engine.LAYOUT_SIZE})
     def __init__(self,_):self.page='hall';self.query='';self.expanded=False;self.controller=self;self.last=None;self.connection=None;self.selected='';self.slot=0;self.inputs=[]
     def initialize(self):pass
     def windows(self):return {'windows':[{'hwnd':'123','pid':123,'elevated':True}]}
@@ -20,7 +24,10 @@ class FakeService:
     def post_input_text(self,text):self.query=text;self.inputs.append(('text',text));return Job()
     def post_click(self,x,y):
         self.inputs.append(('click',x,y))
-        if self.page=='hall':assert 675<x<820 and y>945;self.page='list'
+        if self.page in ('paid_shop','department_store','outpost','ark','unknown'):
+            assert 149<=x<182 and 1004<=y<1034
+            self.page='hall'
+        elif self.page=='hall':assert 675<x<820 and y>945;self.page='list'
         elif self.page=='list':
             if y>940:self.page='hall'
             elif y<270:self.expanded=True
@@ -32,10 +39,13 @@ class FakeService:
         else:assert (x>1150 and y<115) or (1260<=x<=1470 and 250<=y<=750);self.page='detail'
         return Job()
 class FakePages:
+    image=None
     def __init__(self,s):self.s=s
     def reset(self):pass
     def page(self):return self.s.page
     def is_page(self,expected):return self.s.page==expected
+    def home_button(self):return [149,1004,33,30] if self.s.page in ('paid_shop','department_store','outpost','ark','unknown') else None
+    def home_button_with_back(self):return self.home_button() if self.s.page=='unknown' else None
     def detail_matches(self,c):raise AssertionError('Fast flow must not re-identify inside details')
     def equipment_tab(self):return True
     def slot_state(self,index):return 'unequipped' if index==0 else 'equipped'
@@ -54,7 +64,7 @@ class FakePages:
 class TestCollector(engine.Collector):
     def __init__(self,request,folder):super().__init__(request,folder,FakeService,FakePages,lambda:True);self.events=[];self.wait_calls=[]
     def guard(self,*_,**__):pass
-    def capture(self,record=True):self.frame_captured_at=engine.time.monotonic()
+    def capture(self,record=True):self.frame_captured_at=engine.time.monotonic();self.frame_size=engine.LAYOUT_SIZE
     def emit(self,kind,data=None,image=False,ignore_cancel=False):self.events.append((kind,data or {}));return {}
     def wait(self,predicate,label,**kwargs):
         self.wait_calls.append((label,kwargs))
@@ -64,7 +74,7 @@ class TestCollector(engine.Collector):
 saved_sleep=engine.time.sleep;saved_candidates=engine.candidates
 engine.time.sleep=lambda _:None
 try:
-    root=project.parent/'codex temp/nikke-desktop/automation-dev-copy'
+    root=Path(os.environ.get('NIKKE_CACHE_DIR',project.parent/'codex temp/nikke-desktop'))/'automation-dev-copy'
     folder=Path(tempfile.mkdtemp(prefix='collection-engine-',dir=root))
     request={'characters':[roster['桃乐丝'],roster['红莲']],'target':{'hwnd':'123','pid':123},'ownerPid':1}
     test=TestCollector(request,folder)
@@ -93,5 +103,29 @@ try:
         c=roster[second.s.query];return [{'box':[80,389,128,218],'element':c['element'],'burst':c['use_burst_skill']},{'box':[229,389,128,218],'element':c['element'],'burst':c['use_burst_skill']}]
     engine.candidates=items2;second.run()
     assert second.state['phase']=='completed';assert not any(kind=='equipment' for kind,_ in second.events)
+    for start in ['paid_shop','department_store','outpost','ark','unknown']:
+        test.s.page=start;test.s.inputs.clear()
+        test.ensure('hall')
+        assert len(test.s.inputs)==1 and test.s.page=='hall'
+    test.s.page='unknown';test.s.inputs.clear()
+    test.ensure('list')
+    assert len(test.s.inputs)==2 and test.s.page=='list'
+    test.s.page='unknown';test.s.inputs.clear()
+    with patch.object(test.pages,'home_button_with_back',side_effect=[[149,1004,33,30],None]):
+        try:test.ensure('hall')
+        except engine.PageDeviation:pass
+        else:raise AssertionError('Back button disappeared before dispatch on unknown page')
+    assert test.s.inputs==[]
+    test.s.page='paid_shop';test.s.inputs.clear()
+    with patch.object(test.pages,'home_button',side_effect=[[149,1004,33,30],None]):
+        try:test.ensure('hall')
+        except engine.PageDeviation:pass
+        else:raise AssertionError('Home button disappeared before dispatch')
+    assert test.s.inputs==[]
+    with patch.object(test,'wait',side_effect=engine.PageDeviation('hall unconfirmed')):
+        try:test.ensure('hall')
+        except engine.HomeReturnUnconfirmed:pass
+        else:raise AssertionError('Expected to stop without a confirmed lobby')
+    assert len(test.s.inputs)==1
     print(json.dumps({'passed':True,'fullAutomaticFlow':True,'skipAmbiguous':True,'nonT10':True,'unequipped':True,'returnedHall':True,'resumeNoDuplicate':True,'noDuplicateListVerification':True,'shortBoundedReturnPoll':True,'clickCoordinatesLogged':True,'gameInputs':0,'evidence':str(folder)}))
 finally:engine.time.sleep=saved_sleep;engine.candidates=saved_candidates

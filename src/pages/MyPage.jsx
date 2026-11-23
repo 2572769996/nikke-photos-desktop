@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { t } from '../lib/i18n.js'
 
 const ENTRIES = [
+  { to: '/settings', title: '设置', desc: '管理按钮点击和装备洗练音效' },
   { to: '/backups', title: '备份与恢复', desc: '集中备份档案、录入模板、自定义角色、模拟方案、收入记录和剧情进度' },
   { to: '/about', title: '关于', desc: '软件版本、第三方来源、开源许可与资源说明' },
   { to: '/custom-nikke/new', title: '新增妮姬', desc: '补充尚未收录的角色，添加资料、头像与立绘，仅保存在本机' },

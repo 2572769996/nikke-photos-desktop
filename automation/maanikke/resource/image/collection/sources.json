@@ -1,7 +1,128 @@
 [
   {
+    "file": "ark-lost-sector.png",
+    "source": "用户提供的国服方舟页面截图（2026-11-23 图1）",
+    "crop": [
+      832,
+      320,
+      900,
+      343
+    ],
+    "sourceSha256": "795ea9dc6ebf0d30c878845c8c3a17c9146f93433e4196673ed9fd35a69fe1d4"
+  },
+  {
+    "file": "ark-tribe-tower.png",
+    "source": "用户提供的国服方舟页面截图（2026-11-23 图1）",
+    "crop": [
+      1058,
+      407,
+      1128,
+      431
+    ],
+    "sourceSha256": "795ea9dc6ebf0d30c878845c8c3a17c9146f93433e4196673ed9fd35a69fe1d4"
+  },
+  {
+    "file": "ark-simulation-room.png",
+    "source": "用户提供的国服方舟页面截图（2026-11-23 图1）",
+    "crop": [
+      749,
+      592,
+      804,
+      616
+    ],
+    "sourceSha256": "795ea9dc6ebf0d30c878845c8c3a17c9146f93433e4196673ed9fd35a69fe1d4"
+  },
+  {
+    "file": "ark-arena.png",
+    "source": "用户提供的国服方舟页面截图（2026-11-23 图1）",
+    "crop": [
+      1099,
+      692,
+      1155,
+      718
+    ],
+    "sourceSha256": "795ea9dc6ebf0d30c878845c8c3a17c9146f93433e4196673ed9fd35a69fe1d4"
+  },
+  {
+    "file": "ark-interception.png",
+    "source": "用户提供的国服方舟页面截图（2026-11-23 图1）",
+    "crop": [
+      805,
+      881,
+      860,
+      905
+    ],
+    "sourceSha256": "795ea9dc6ebf0d30c878845c8c3a17c9146f93433e4196673ed9fd35a69fe1d4"
+  },
+  {
+    "file": "ark-solo-raid-museum.png",
+    "source": "用户提供的国服方舟页面截图（2026-11-23 图1）",
+    "crop": [
+      981,
+      974,
+      1094,
+      997
+    ],
+    "sourceSha256": "795ea9dc6ebf0d30c878845c8c3a17c9146f93433e4196673ed9fd35a69fe1d4"
+  },
+  {
+    "file": "nav-back.png",
+    "source": "用户提供的国服返回与小房子组合截图（2026-11-23）",
+    "crop": [
+      13,
+      9,
+      117,
+      37
+    ],
+    "sourceSha256": "d297b020b36aa7feb26fec28f5e042b5088487cfe0969c51e88ec49a2b1a058e"
+  },
+  {
+    "file": "outpost-command.png",
+    "source": "用户提供的国服前哨基地底部按钮截图（2026-11-23 图2）",
+    "crop": [
+      239,
+      26,
+      325,
+      82
+    ],
+    "sourceSha256": "44beac0d78c461595dc6aab40256af007fda476155240c8711969a7d2133d3ec"
+  },
+  {
+    "file": "outpost-recycling.png",
+    "source": "用户提供的国服前哨基地底部按钮截图（2026-11-23 图2）",
+    "crop": [
+      386,
+      37,
+      440,
+      89
+    ],
+    "sourceSha256": "44beac0d78c461595dc6aab40256af007fda476155240c8711969a7d2133d3ec"
+  },
+  {
+    "file": "outpost-elevator.png",
+    "source": "用户提供的国服前哨基地底部按钮截图（2026-11-23 图2）",
+    "crop": [
+      204,
+      143,
+      261,
+      187
+    ],
+    "sourceSha256": "44beac0d78c461595dc6aab40256af007fda476155240c8711969a7d2133d3ec"
+  },
+  {
+    "file": "home-button.png",
+    "source": "用户提供的国服左下角导航截图（2026-11-23 图3）",
+    "crop": [
+      149,
+      10,
+      182,
+      40
+    ],
+    "sourceSha256": "b0a353aff057b906dc2bf4ee7debb728aed6f67a8d3a6c1a9b756b2f37c6ace8"
+  },
+  {
     "file": "close.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\aae6f3c9-8a52-4492-91be-0ce5f96faa91\\031-equipment-0-头.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       1159,
       78,
@@ -12,7 +133,7 @@
   },
   {
     "file": "overload.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\aae6f3c9-8a52-4492-91be-0ce5f96faa91\\031-equipment-0-头.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       900,
       80,
@@ -23,7 +144,7 @@
   },
   {
     "file": "burst-Step1.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\aae6f3c9-8a52-4492-91be-0ce5f96faa91\\019-query-results-2.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       233,
       451,
@@ -34,7 +155,7 @@
   },
   {
     "file": "burst-Step3.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\aae6f3c9-8a52-4492-91be-0ce5f96faa91\\019-query-results-2.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       84,
       451,
@@ -45,7 +166,7 @@
   },
   {
     "file": "burst-AllStep.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\03ed8bc9-4246-415a-95a3-8accfe012500\\009-query-results-2.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       233,
       451,
@@ -56,7 +177,7 @@
   },
   {
     "file": "tier9.png",
-    "source": "C:\\Users\\xby\\AppData\\Local\\Temp\\codex-clipboard-920f5453-a013-4e35-92f5-6412b6110c76.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       247,
       23,
@@ -67,7 +188,7 @@
   },
   {
     "file": "empty-0.png",
-    "source": "C:\\Users\\xby\\AppData\\Local\\Temp\\codex-clipboard-17fc4a3f-3baa-4eed-9367-d385010979c3.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       35,
       59,
@@ -78,7 +199,7 @@
   },
   {
     "file": "empty-1.png",
-    "source": "C:\\Users\\xby\\AppData\\Local\\Temp\\codex-clipboard-17fc4a3f-3baa-4eed-9367-d385010979c3.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       170,
       65,
@@ -89,7 +210,7 @@
   },
   {
     "file": "empty-2.png",
-    "source": "C:\\Users\\xby\\AppData\\Local\\Temp\\codex-clipboard-17fc4a3f-3baa-4eed-9367-d385010979c3.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       35,
       170,
@@ -100,7 +221,7 @@
   },
   {
     "file": "empty-3.png",
-    "source": "C:\\Users\\xby\\AppData\\Local\\Temp\\codex-clipboard-17fc4a3f-3baa-4eed-9367-d385010979c3.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       169,
       177,
@@ -111,7 +232,7 @@
   },
   {
     "file": "clear.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\03ed8bc9-4246-415a-95a3-8accfe012500\\009-query-results-2.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       1084,
       304,
@@ -122,7 +243,7 @@
   },
   {
     "file": "search.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\aae6f3c9-8a52-4492-91be-0ce5f96faa91\\012-list-2.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       672,
       193,
@@ -133,7 +254,7 @@
   },
   {
     "file": "burst-Step2.png",
-    "source": "E:\\博哥\\codex temp\\nikke-desktop\\automation-dev-copy\\admin-nikke\\aae6f3c9-8a52-4492-91be-0ce5f96faa91\\001-initial.png",
+    "source": "国服装备采集参考截图",
     "crop": [
       1276,
       451,

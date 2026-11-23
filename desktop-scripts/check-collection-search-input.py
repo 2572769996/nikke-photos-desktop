@@ -43,6 +43,8 @@ class SearchProbe(Collector):
         self.clock = 0; self.page = 'list'; self.query = ''; self.mode = mode
         self.focuses = 0; self.texts = []; self.polls = 0; self.deliver_next=False
         self.s = SimpleNamespace(controller=SimpleNamespace(post_click=self.focus, post_input_text=self.type))
+        self.frame_size=(1920,1080)
+        self.s.capture_backend=SimpleNamespace(inspect=lambda:{'size':self.frame_size})
         self.pages = SearchPages(self)
     def guard(self, *a, **kw):
         if self.mode == 'canceled': raise Cancelled('user stopped')

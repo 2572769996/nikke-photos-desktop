@@ -1,7 +1,7 @@
 {
   "name": "nikke-photos-desktop",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite --configLoader native",
@@ -89,7 +89,7 @@
     "appId": "local.nikke.photos.desktop",
     "productName": "NIKKE Photos",
     "directories": {
-      "output": "release/v1.2.0",
+      "output": "release/v1.2.1",
       "buildResources": "build"
     },
     "files": [
@@ -149,7 +149,7 @@
       "runAfterFinish": false,
       "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
-      "artifactName": "NIKKE-Photos-v1.2.0-Windows-x64-Setup.exe",
+      "artifactName": "NIKKE-Photos-v1.2.1-Windows-x64-Setup.exe",
       "include": "build/installer.nsh",
       "installerLanguages": [
         "zh_CN",

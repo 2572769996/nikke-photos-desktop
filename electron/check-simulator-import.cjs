@@ -52,9 +52,12 @@ module.exports=async({window:win,frame:outer,cacheRoot,complete,invalid})=>{
  await js("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='开始模拟').click()");
  await until(()=>js("!!document.querySelector('.sim-stats')"),'started');
  assert.match(await js("document.querySelector('.gear-grid').innerText"),/攻击力\s*8\.29%/);
- await js("[...document.querySelectorAll('.gear-card button')].find(b=>b.textContent.includes('变更效果')).click()");
- await until(()=>js("!!document.querySelector('.el-dialog')?.getClientRects().length"),'wash');
- await js("[...document.querySelectorAll('.el-dialog button')].find(b=>b.textContent.trim()==='保留原词条').click()");
+ assert.ok((await js("document.querySelector('.gear-icon img').src")).includes('/'+family+'-head-'));
+ await js("document.querySelector('.wash-area button').click()");
+ await until(()=>js("!!document.querySelector('.ol-preview .ol-primary')"),'preview');
+ await js("document.querySelector('.ol-preview .ol-primary').click()");
+ await until(()=>js("!!document.querySelector('.ol-result .btn-keep')"),'wash');
+ await js("document.querySelector('.ol-result .btn-keep').click()");
  assert.equal(await js("document.querySelector('.stat-num').textContent"),'1');
  await js("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='结束本局').click()");report.importedGearCanSimulate=true;
  await radio('character');assert.equal(await js("document.querySelector('#simulator-select-equipment').textContent.trim()"),'选择角色');
@@ -62,6 +65,16 @@ module.exports=async({window:win,frame:outer,cacheRoot,complete,invalid})=>{
  await host("document.querySelector('.reroll-import-dialog [type=submit]').click()");await ready();
  const four=await board();assert.equal(four.length,12);assert.match(four[0].join(' '),/攻击力.*阶数6/);assert.match(four[3].join(' '),/优越代码伤害.*阶数12/);assert.match(four[6].join(' '),/最大装弹数.*阶数1/);assert.match(four[9].join(' '),/蓄力速度.*阶数7/);report.fourGearSnapshot=true;
  await js("document.querySelector('#simulator-select-equipment').scrollIntoView({block:'center'})");await delay(100);fs.writeFileSync(path.join(cacheRoot,'simulator-imported-four.png'),(await web.capturePage()).toPNG());
+ await choose('.custom-panel .slot-list .slot-row',0,'防御力');
+ await js("document.querySelector('.compare-actions .el-button--primary').click()");
+ await until(()=>js("document.querySelectorAll('.ol-gear-tabs button').length===4"),'four gear tabs');
+ for(const [index,slot] of ['head','body','arms','legs'].entries()){
+   await js(`document.querySelectorAll('.ol-gear-tabs button')[${index}].click()`);
+   assert.ok((await js("document.querySelector('.gear-icon img').src")).includes('/'+family+'-'+slot+'-'));
+ }
+ assert.match(await js("document.querySelector('.ol-card').innerText"),/蓄力速度\s*3\.75%/);
+ await js("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='结束本局').click()");
+ report.fourGearArtAndSelection=true;
  await parent("document.querySelector('#panel-equipment-simulator iframe').style.width='390px'");await delay(100);assert.equal(await js('document.documentElement.scrollWidth>innerWidth'),false);report.longRuleNoOverflow=true;
  await parent("document.querySelector('#panel-equipment-simulator iframe').style.width='100%'");
  await open();await pick();await js("const r=document.querySelector('#simulator-rule');r.value='global';r.dispatchEvent(new Event('change',{bubbles:true}))");

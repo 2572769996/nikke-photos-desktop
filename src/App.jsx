@@ -16,6 +16,9 @@ import CustomNikkePage from './pages/CustomNikkePage.jsx'
 import { getCustomNikkeError, getCustomNikkeRevision, subscribeCustomNikkes } from './lib/customNikkeStore.js'
 import MyNikkePage from './pages/MyNikkePage.jsx'
 import MyPage from './pages/MyPage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
+import { listenForUiClicks } from '../tools/ui-click.js'
+import { playUiSound } from './lib/uiSound.js'
 import ProfilesPage from './pages/ProfilesPage.jsx'
 import SchemesPage from './pages/SchemesPage.jsx'
 import StatsPage from './pages/StatsPage.jsx'
@@ -32,6 +35,7 @@ const IMPORT_LANDING_PATH = '/profiles'
 const BackupPage = lazy(() => import('./pages/BackupPage.jsx'))
 
 export default function App() {
+  useEffect(() => listenForUiClicks(document, playUiSound), [])
   useSyncExternalStore(subscribeCustomNikkes, getCustomNikkeRevision)
   const navigate = useNavigate()
   const location = useLocation()
@@ -77,6 +81,7 @@ export default function App() {
         <Route path="/custom-nikke/new" element={<CustomNikkePage />} />
         <Route path="/my-nikke" element={<MyNikkePage />} />
         <Route path="/my" element={<MyPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/profiles" element={<ProfilesPage />} />
         <Route path="/backups" element={<Suspense fallback={<main className="page">正在加载备份中心…</main>}><BackupPage /></Suspense>} />
         <Route path="/schemes" element={<SchemesPage />} />

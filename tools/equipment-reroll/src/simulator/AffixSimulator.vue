@@ -20,69 +20,62 @@
     </div>
 
     <p v-if="started" class="simulation-status" role="status" aria-live="polite">
-      {{ won ? '目标已达成' : dialogVisible ? '等待保留或应用本轮结果' : '模拟进行中' }} ·
+      {{ won ? '已通关 · 目标已达成' : dialogVisible ? '等待选择本轮效果' : previewVisible ? '等待确认本轮材料' : '模拟进行中' }} ·
       <span v-if="expectLoading">初始理论期望计算中，可继续手动洗练</span>
       <span v-else-if="expectError" class="expect-error">理论期望不可用：{{ expectError }}</span>
       <span v-else>初始理论期望已就绪（p = 0.1）</span>
     </p>
     <template v-if="started">
-      <div class="panel">
-        <h3 class="panel-title">目标词条（{{ mode === 'single' ? '单装备' : '四件装备合计' }}）</h3>
-        <div class="target-chips">
-          <span v-for="t in targets" :key="t.effects.join('')" class="target-chip" :class="{ reached: goalMetFor(gears, [t]) }">
-            {{ targetLabel(t) }} ≥ 阶数{{ t.tier }} · {{ goalMetFor(gears, [t]) ? '已达成' : '未达成' }}
-          </span>
-        </div>
-        <div class="sim-stats">
-          <span class="stat">已消耗：<b class="stat-num">{{ stonesUsed }}</b> 石头</span>
-          <span class="stat">已消耗：<b class="stat-num">{{ keysUsed }}</b> 秘钥</span>
-          <el-tag v-if="won" type="success" effect="dark">已通关</el-tag>
-        </div>
-      </div>
-
-      <div class="gear-grid" :class="{ single: mode === 'single' }">
-        <div class="gear-card" v-for="(gear, gi) in gears" :key="gi">
-          <h4 class="gear-title">{{ mode === 'single' ? '装备' : '装备' + gearNames[gi] }}</h4>
-          <div class="slot-row" :aria-label="`装备${gi + 1}栏位${si + 1}`" v-for="(slot, si) in gear.slots" :key="si">
-            <span class="slot-label">栏位{{ si + 1 }}</span>
-            <span class="slot-affix" :class="[{empty:slot.effect==='wd'},tierClass(slot.tier)]">{{ slotText(slot) }}</span>
-            <span v-if="gear.locks[si]" class="lock-tag" :class="gear.locks[si]">
-              {{ gear.locks[si] === 'stone' ? '石头锁' : '秘钥锁' }}
+      <div class="ol-stage">
+        <aside class="ol-goals">
+          <h3 class="panel-title">目标词条</h3>
+          <div class="target-chips">
+            <span v-for="t in targets" :key="t.effects.join('')" class="target-chip" :class="{reached:goalMetFor(gears,[t])}">
+              {{ targetLabel(t) }} ≥ 阶数{{ t.tier }} · {{ goalMetFor(gears,[t]) ? '已达成' : '未达成' }}
             </span>
-            <div class="slot-actions">
-              <el-checkbox
-                :model-value="wantOf(gear, si) === 'stone'"
-                :disabled="!canCheckLock(gear, si, 'stone')"
-                @change="v => setLockWant(gi, si, 'stone', v)"
-              >
-                石头锁<template v-if="lockCost(gear, si, 'stone') !== null">（{{ lockCost(gear, si, 'stone') }} 石）</template>
-              </el-checkbox>
-              <el-checkbox
-                :model-value="wantOf(gear, si) === 'key'"
-                :disabled="!canCheckLock(gear, si, 'key')"
-                @change="v => setLockWant(gi, si, 'key', v)"
-              >
-                秘钥锁<template v-if="lockCost(gear, si, 'key') !== null">（{{ lockCost(gear, si, 'key') }} 钥）</template>
-              </el-checkbox>
-              <el-button size="small" :disabled="gear.locks[si] !== 'stone'" @click="unlockSlot(gi, si)">解锁</el-button>
-            </div>
           </div>
-          <div class="wash-area">
-            <el-button type="primary" :disabled="won" @click="startWash(gi, 'xg')">
-              变更效果（{{ washCost(gear) }} 石头）
-            </el-button>
-            <el-button plain :disabled="won || !canWashSz(gear)" @click="startWash(gi, 'sz')">
-              变更数值（{{ washCost(gear) }} 石头）
-            </el-button>
-            <span class="wash-hint">变更效果：重新随机未锁定栏位的词条效果与阶数；变更数值：仅重新随机阶数</span>
-            <span v-if="plannedLockText(gear)" class="wash-hint lock-plan-hint">{{ plannedLockText(gear) }}</span>
-          </div>
+          <nav v-if="gears.length > 1" aria-label="选择装备" class="ol-gear-tabs">
+            <button v-for="(part,i) in parts" :key="part" :aria-pressed="gi === i" @click="selectGear(i)">{{ part }}</button>
+          </nav>
+        </aside>
+        <div class="gear-grid single ol-center">
+          <article class="gear-card ol-card">
+            <GearPortrait :slot="artSlot" :role="artRole" />
+            <section class="ol-section">
+              <h4>模拟材料消耗</h4>
+              <div class="sim-stats">
+                <span class="stat"><img :src="moduleIcon" alt="" />订制模组 <b class="stat-num">{{ stonesUsed }}</b></span>
+                <span class="stat"><img :src="keyIcon" alt="" />订制秘钥 <b class="stat-num">{{ keysUsed }}</b></span>
+              </div>
+            </section>
+            <section class="ol-section">
+              <h4>改造装备效果</h4>
+              <p class="ol-caption">选择锁定图标可设置本栏的锁定方式。</p>
+              <div v-for="(slot,si) in gear.slots" :key="si" class="slot-row ol-slot" :aria-label="`装备${gi+1}栏位${si+1}`">
+                <GameAffix :name="EFFECT_NAMES[slot.effect]" :value="TIER_VALUES[slot.effect]?.[slot.tier-1]" :tier="slot.tier" :empty="slot.effect==='wd'" />
+                <button class="ol-lock" :class="gear.locks[si] || wantOf(gear,si)" :title="lockLabel(gear,si)" :aria-label="`栏位${si+1}，${lockLabel(gear,si)}，锁定设置`" :aria-expanded="lockMenu === si" :disabled="won || slot.effect==='wd'" @click="lockMenu = lockMenu === si ? null : si">
+                  <span class="lock-icon" aria-hidden="true"></span>
+                </button>
+                <div v-if="lockMenu === si" class="slot-actions">
+                  <el-checkbox v-for="type in ['stone','key']" :key="type" :model-value="wantOf(gear,si)===type || gear.locks[si]===type" :disabled="!canCheckLock(gear,si,type)" @change="v => setLockWant(gi,si,type,v)">
+                    {{ type==='stone' ? '石头锁' : '秘钥锁' }}<template v-if="lockCost(gear,si,type) !== null">（{{ lockCost(gear,si,type) }} {{ type==='stone'?'石':'钥' }}）</template>
+                  </el-checkbox>
+                  <el-button v-if="gear.locks[si]==='stone'" size="small" @click="unlockSlot(gi,si)">解锁</el-button>
+                </div>
+              </div>
+              <div class="wash-area">
+                <button class="ol-action" :disabled="won" @click="previewWash('xg')"><span aria-hidden="true">⟳</span> 效果变更</button>
+                <button class="ol-action" :disabled="won || !canWashSz(gear)" @click="previewWash('sz')"><span aria-hidden="true">%</span> 重新设定数值</button>
+              </div>
+              <p v-if="plannedLockText(gear)" class="ol-caption">{{ plannedLockText(gear) }}</p>
+            </section>
+          </article>
         </div>
       </div>
 
       <details class="panel goal-note"><summary>锁定与费用规则</summary>
         <p>提示：石头锁为永久锁，可随时免费解锁；秘钥锁为一次性锁，本次洗练后自动解除（即使选择保留之前的词条）。目标达成即通关。</p>
-        <p>勾选「石头锁 / 秘钥锁」不会立刻消耗资源，点击「变更效果 / 变更数值」时才扣费并上锁（石头锁优先，然后秘钥锁）。秘钥锁的勾选在洗练后保留，下次变更会再次消耗秘钥。</p>
+        <p>勾选「石头锁 / 秘钥锁」不会立刻消耗资源，在材料弹窗确认后才扣费并上锁（石头锁优先，然后秘钥锁）。秘钥锁的勾选在洗练后保留，下次变更会再次消耗秘钥。</p>
       </details>
     </template>
 
@@ -198,76 +191,52 @@
 
     <el-empty v-else description="选择模式后点击「开始随机模拟」或使用「自定义模拟」" />
 
-    <!-- 洗练结果弹窗 -->
-    <el-dialog
-      v-model="dialogVisible"
-      title="洗练结果"
-      width="560px"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      :show-close="false"
-      align-center
-    >
-      <template v-if="pendingWash">
-        <p class="dialog-note">
-          本次{{ pendingWash.type === 'xg' ? '变更效果' : '变更数值' }}消耗 <b>{{ pendingWash.cost }}</b> 石头
-          <template v-if="pendingWash.lockStone">
-            ，新上锁消耗 <b>{{ pendingWash.lockStone }}</b> 石头
-          </template>
-          <template v-if="pendingWash.lockKey">
-            ，新上锁消耗 <b>{{ pendingWash.lockKey }}</b> 秘钥
-          </template>
-          <template v-if="pendingWash.keyLocks.length">
-            ；装备上的秘钥锁（第{{ pendingWash.keyLocks.map(i => i + 1).join('、') }}栏）已在本轮洗练后解除（勾选保留，下次变更会再次消耗秘钥）
-          </template>
-        </p>
-        <div class="wash-blocks">
-          <div class="wash-block old-block">
-            <div class="wash-block-title">原词条</div>
-            <div class="wash-block-list">
-              <div
-                v-for="(row, i) in pendingWash.rows"
-                :key="'o' + i"
-                class="wash-block-item"
-              >
-                <GameAffix :name="EFFECT_NAMES[row.old.effect]" :value="TIER_VALUES[row.old.effect]?.[row.old.tier-1] || ''" :tier="row.old.tier" :empty="row.old.effect==='wd'" />
-              </div>
-            </div>
-          </div>
-          <div class="wash-swap">↑↓</div>
-          <div class="wash-block new-block">
-            <div class="wash-block-title">新结果</div>
-            <div class="wash-block-list">
-              <div
-                v-for="(row, i) in pendingWash.rows"
-                :key="'n' + i"
-                class="wash-block-item"
-              >
-                <GameAffix :name="EFFECT_NAMES[row.new.effect]" :value="TIER_VALUES[row.new.effect]?.[row.new.tier-1] || ''" :tier="row.new.tier" :empty="row.new.effect==='wd'" />
-              </div>
-            </div>
-          </div>
+    <el-dialog v-model="previewVisible" :title="washTitle" class="ol-preview" width="480px" align-center :close-on-click-modal="false" destroy-on-close>
+      <section v-if="gear" class="ol-section">
+        <p class="ol-caption">{{ previewType==='xg' ? '将重新随机未锁定栏位的效果与数值。' : '保留当前效果，仅重新设定未锁定栏位的数值。' }}</p>
+        <div v-for="(slot,si) in gear.slots" :key="si" class="ol-strip">
+          <GameAffix :name="EFFECT_NAMES[slot.effect]" :value="TIER_VALUES[slot.effect]?.[slot.tier-1]" :tier="slot.tier" :empty="slot.effect==='wd'" />
+          <span class="ol-lock" :class="gear.locks[si] || wantOf(gear,si)" :aria-label="lockLabel(gear,si)"><span class="lock-icon"></span></span>
         </div>
-      </template>
-      <template #footer>
-        <div class="wash-footer">
-          <template v-if="pendingWash && pendingWash.forceApply">
-            <el-button class="btn-apply" @click="resolveWash(true)">应用</el-button>
-            <p class="dialog-note wash-note">空装备首次改造只能应用，且固定获得 11 阶词条。</p>
-          </template>
-          <template v-else>
-            <el-button class="btn-keep" @click="resolveWash(false)">保留原词条</el-button>
-            <el-button class="btn-apply" @click="resolveWash(true)">应用新结果</el-button>
-            <div class="wash-again-row">
-              <el-button class="btn-again" @click="keepAndWashAgain()">保留原词条并再洗</el-button>
+        <details class="ol-prob"><summary>概率情报</summary>
+          <p>效果变更时，三个栏位的获得概率依次为 {{ SLOT_GET.map(v => v*100+'%').join('、') }}。锁定及已抽中的效果从候选中移除，其余效果按权重分配。</p>
+          <div class="prob-list"><span v-for="item in EFFECT_WEIGHTS" :key="item.code">{{ EFFECT_NAMES[item.code] }} {{ item.w*100 }}%</span></div>
+          <p>空装备首次改造固定为 11 阶。其余数值抽取中，1–5 阶每阶 {{ TIER_P[1]*100 }}%，6–10 阶每阶 {{ Math.round(TIER_P[6]*100) }}%，11–15 阶每阶 {{ TIER_P[11]*100 }}%。</p>
+        </details>
+      </section>
+      <section v-if="gear" class="ol-section ol-cost">
+        <h4>消耗材料</h4>
+        <div><img :src="moduleIcon" alt=""/><strong>订制模组</strong><b>× {{ washCost(gear) + lockFees.stone }}</b></div>
+        <div v-if="lockFees.key"><img :src="keyIcon" alt=""/><strong>订制秘钥</strong><b>× {{ lockFees.key }}</b></div>
+        <p v-if="plannedLockText(gear)" class="ol-caption">{{ plannedLockText(gear) }}</p>
+      </section>
+      <template #footer><button class="ol-primary" @click="confirmWash">{{ washTitle }}</button></template>
+    </el-dialog>
+
+    <el-dialog v-model="dialogVisible" class="ol-result" title="OPTION CHANGE" width="484px" align-center :close-on-click-modal="false" :close-on-press-escape="false" :show-close="false" destroy-on-close>
+      <div v-if="pendingWash" ref="resultPanel">
+        <GearPortrait :slot="artSlot" :role="artRole" compact />
+        <template v-for="side in ['old','new']" :key="side + stonesUsed">
+          <div v-if="side==='new'" class="wash-swap" aria-hidden="true">❯</div>
+          <section class="wash-block" :class="side==='old'?'old-block':'new-block'">
+            <h4>{{ side==='old'?'⟳　目前效果':'✓　变更效果' }}</h4>
+            <div v-for="(row,si) in pendingWash.rows" :key="si" class="wash-block-item ol-strip"
+              :class="{ 'awaiting-reveal': side === 'new' && si >= revealedRows, 'revealed-effect': side === 'new' && si < revealedRows && row.new.effect !== 'wd' && !canRepeat }">
+              <template v-if="side === 'old' || si < revealedRows">
+                <GameAffix :name="EFFECT_NAMES[row[side].effect]" :value="TIER_VALUES[row[side].effect]?.[row[side].tier-1]" :tier="row[side].tier" :empty="row[side].effect==='wd'" />
+                <span v-if="gear.locks[si]" class="ol-lock" :class="gear.locks[si]" :aria-label="lockLabel(gear,si)"><span class="lock-icon"></span></span>
+              </template>
             </div>
-            <p class="dialog-note wash-note">
-              保留原词条会放弃本次新结果；秘钥锁不会恢复。
-              再洗会沿用当前设置并再次消耗资源。
-            </p>
-          </template>
-        </div>
-      </template>
+          </section>
+        </template>
+      </div>
+      <template #footer><div v-if="pendingWash" class="wash-footer">
+        <button v-if="!pendingWash.forceApply" class="btn-keep" @click="resolveWash(false)">⟳　效果维持</button>
+        <button class="btn-apply" @click="applyWash">✓　效果变更</button>
+        <p v-if="pendingWash.forceApply" class="wash-note">首次改造必须采用，获得的效果固定为 11 阶。</p>
+        <button v-else class="btn-again" :disabled="!canRepeat" @click="canRepeat && keepAndWashAgain()">保留原词条并再洗</button>
+        <p class="wash-note">本轮消耗 {{ pendingWash.cost + pendingWash.lockStone }} 个模组<span v-if="pendingWash.lockKey">、{{ pendingWash.lockKey }} 把秘钥，一次性锁在结算后解除</span>。</p>
+      </div></template>
     </el-dialog>
 
     <!-- 期望 / 通关结果 -->
@@ -307,7 +276,11 @@ import { CHAR_TIER_RANGES } from './affix_tier_ranges.js'
 // 内联 Worker（Blob）：不依赖外部 worker / 算法文件，也不使用 import.meta
 import AffixWorker from './expectation.worker.js?worker'
 import { requestSimulatorEquipment } from './equipment-import.js'
+import { sendToolSound } from '../../../file-drop-relay.js'
 import GameAffix from './GameAffix.vue'
+import GearPortrait from './GearPortrait.vue'
+import moduleIcon from '../../../../src/assets/resources/custom-module.png'
+import keyIcon from '../../../../src/assets/resources/custom-lock.png'
 
 // Desktop simulator deliberately has no player-account bridge.
 
@@ -412,6 +385,81 @@ const expectLoading = ref(false)
 const expectProgress = ref('')
 const dialogVisible = ref(false)
 const pendingWash = ref(null)
+const revealedRows = ref(0)
+const resultPanel = ref(null)
+const completedReveal = ref(null)
+const canRepeat = computed(() => pendingWash.value !== null && completedReveal.value === pendingWash.value)
+watch(pendingWash, (result, previous, onCleanup) => {
+  completedReveal.value = null
+  if (!result) return
+  const rows = result.rows
+  sendToolSound('wash' + rows.filter(row => row.new.effect !== 'wd').length)
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  revealedRows.value = reducedMotion ? rows.length : 0
+  if (reducedMotion) completedReveal.value = result
+  const timers = []
+  if (!reducedMotion) {
+    // 第一声在 626 ms，后续每隔 201 ms；空栏在两声之间呈现。
+    let nextBeat = 626
+    let lastReveal = 0
+    rows.forEach((row, index) => {
+      if (row.new.effect === 'wd') lastReveal += 65
+      else {
+        lastReveal = nextBeat
+        nextBeat += 201
+      }
+      timers.push(setTimeout(() => { revealedRows.value = index + 1 }, lastReveal))
+    })
+  }
+  onCleanup(() => {
+    for (const timer of timers) clearTimeout(timer)
+    sendToolSound('endReveal')
+  })
+})
+watch(revealedRows, async count => {
+  const result = pendingWash.value
+  if (!result || count !== result.rows.length || !resultPanel.value) return
+  // 最后一栏可能为空，而上一栏的入场动画还在播放。
+  const animations = resultPanel.value.getAnimations({subtree:true}).filter(a => a.animationName === 'reveal-affix')
+  await Promise.allSettled(animations.map(a => a.finished))
+  if (pendingWash.value === result) completedReveal.value = result
+}, {flush:'post'})
+function applyWash() {
+  if (!pendingWash.value) return
+  resolveWash(true)
+  sendToolSound('apply')
+}
+const gi = ref(0)
+const lockMenu = ref(null)
+const gear = computed(() => gears.value[gi.value])
+const parts = ['头部','躯干','臂部','腿部']
+const customArt = ref({ single: {role:'Attacker',slot:2}, character: {role:'Attacker'} })
+const artSlot = computed(() => mode.value==='character' ? gi.value : simMode.value==='custom' ? customArt.value.single.slot : 2)
+const artRole = computed(() => simMode.value==='custom' ? customArt.value[mode.value].role : 'Attacker')
+const previewType = ref('xg')
+const previewVisible = ref(false)
+const washTitle = computed(() => previewType.value==='xg' ? '效果变更' : '重新设定数值')
+const lockFees = computed(() => {
+  const plan = lockPlan(gear.value)
+  return {stone:plan.stone.reduce((sum,p) => sum+LOCK_STONE[p.index],0), key:plan.key.reduce((sum,p) => sum+LOCK_KEY[p.index],0)}
+})
+function selectGear(index) {
+  gi.value = index
+  lockMenu.value = null
+}
+function lockLabel(g,si) {
+  return ({stone:'石头锁', key:'秘钥锁'})[g.locks[si] || wantOf(g,si)] || '未锁定'
+}
+function previewWash(type) {
+  lockMenu.value = null
+  previewType.value = type
+  previewVisible.value = true
+}
+function confirmWash() {
+  if (!previewVisible.value) return
+  previewVisible.value = false
+  startWash(gi.value, previewType.value)
+}
 
 // 自定义模拟
 const customSingleGear = ref(blankGear())
@@ -431,6 +479,7 @@ async function chooseCharacterEquipment() {
     const result=await task.promise
     if(importTask!==task || started.value || simMode.value!=='custom' || mode.value!==scope)return
     if(!result){importStatus.value='已取消选择，模拟初始装备保持不变。';return}
+    customArt.value[scope] = {role:result.equipmentClass, slot:result.slot}
     if(scope==='single')customSingleGear.value=result.gears[0]
     else customCharGears.value=result.gears
     customError.value=''
@@ -858,8 +907,6 @@ function unlockSlot(gi, si) {
   }
 }
 
-// Audio removed; random draws and lock accounting are unchanged.
-
 function startWash(gi, type) {
   if (won.value) return
   const gear = gears.value[gi]
@@ -990,17 +1037,6 @@ function resolveWash(apply) {
 
 /* ==================== 初始期望计算 ==================== */
 
-function slotText(slot) {
-  if (slot.effect === 'wd') return '未获取效果'
-  return EFFECT_NAMES[slot.effect] + TIER_VALUES[slot.effect][slot.tier - 1] + '（阶数' + slot.tier + '）'
-}
-
-function tierClass(tier) {
-  if (tier >= 15) return 'tier-15'
-  if (tier >= 12) return 'tier-12'
-  return ''
-}
-
 function buildCurrent() {
   const gearStr = g =>
     g.slots.map((s, si) => (g.locks && g.locks[si] === 'stone' ? '1' : '0') + s.effect + (s.effect === 'wd' ? 0 : s.tier)).join(',')
@@ -1063,6 +1099,8 @@ function computeExpectation(current, targetStr) {
 }
 
 async function beginGame(gearList, targetList) {
+  selectGear(0)
+  previewVisible.value = false
   started.value = true
   won.value = false
   showExpectation.value = false
@@ -1142,6 +1180,7 @@ function startCustomSimulation() {
 
 function exitGame() {
   cancelExpectation()
+  previewVisible.value = false
   started.value = false
   won.value = false
   showExpectation.value = false

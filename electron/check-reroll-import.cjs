@@ -39,7 +39,7 @@ module.exports=async function({window:win,cacheRoot}){
   await host("[...document.querySelectorAll('.reroll-import-dialog .dlg-foot button')].find(b=>b.textContent==='取消').click()");await until(()=>js("!document.querySelector('#import-completed-character').disabled"),'cancel response');assert.deepEqual(await board(),initial);report.cancelUnchanged=true;
   await open();
   await host(`document.querySelector('input[name=reroll-import-character][value="${complete.nameCode}"]').click()`);
-  win.showInactive();win.focus();await delay(180);fs.writeFileSync(path.join(cacheRoot,'reroll-import-picker.png'),(await web.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());
+  if(!web.isOffscreen()){win.showInactive();win.focus()}await delay(180);fs.writeFileSync(path.join(cacheRoot,'reroll-import-picker.png'),(await web.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());
   const before=await host("JSON.stringify(Object.fromEntries(Object.entries({...localStorage}).filter(([key])=>key.startsWith('nikke-photos/profiles/'))))");
   const targetsBefore=await js("[...document.querySelectorAll('.equipment-target-rows')].map(c=>[...c.querySelectorAll('select,input')].map(e=>e.type==='checkbox'?e.checked:e.value))");
   const rule=await js("document.querySelector('#calculation-rule').value"),conditions=await js("[...document.querySelectorAll('.global-condition-row')].map(c=>[...c.querySelectorAll('select,input')].map(e=>e.value))");

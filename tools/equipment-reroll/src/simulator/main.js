@@ -8,6 +8,7 @@ import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import App from './App.vue'
 import './desktop.css'
+import './overload.css'
 const theme = new URLSearchParams(location.search).get('theme') === 'dark' ? 'dark' : 'light'
 document.documentElement.dataset.theme=theme
 document.documentElement.classList.toggle('dark',theme==='dark')

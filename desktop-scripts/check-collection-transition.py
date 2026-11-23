@@ -34,7 +34,7 @@ class Probe(Collector):
     def classify(self):self.classifications+=1;return self.page_type
     def progress(self,*_,**__):pass
     def delay(self,seconds):self.clock+=seconds
-    def capture(self,record=True):assert not record;self.s.last=self.frames[min(self.index,len(self.frames)-1)];self.index+=1
+    def capture(self,record=True):assert not record;self.s.last=self.pages.image=self.frames[min(self.index,len(self.frames)-1)];self.index+=1
 probe=Probe([fading,fading,settled,settled])
 with patch('collection_worker.time.monotonic',lambda:probe.clock):probe.wait_popup()
 assert probe.index==4 and np.array_equal(probe.s.last,settled)

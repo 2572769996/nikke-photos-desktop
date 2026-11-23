@@ -7,6 +7,25 @@ import numpy as np
 from PIL import Image
 
 ASSETS=Path(__file__).resolve().parent/'resource/image/collection'
+LAYOUT_SIZE = (1920, 1080)
+COLLECTION_SIZES = (LAYOUT_SIZE, (2560, 1440))
+
+def navigation_frame(raw):
+    if raw is None or raw.shape[1::-1] == LAYOUT_SIZE:
+        return raw
+    if raw.shape[1::-1] not in COLLECTION_SIZES:
+        width, height = raw.shape[1::-1]
+        raise RuntimeError(f'当前游戏客户区为 {width}×{height}，装备采集支持 1920×1080 和 2560×1440')
+    # Resampling filters each channel independently and preserves BGR order.
+    return np.asarray(Image.fromarray(raw).resize(LAYOUT_SIZE, Image.Resampling.LANCZOS))
+
+HOME_BUTTON = np.asarray(Image.open(ASSETS/'home-button.png').convert('RGB'), dtype=np.int16)[:,:,::-1]
+BACK_BUTTON = np.asarray(Image.open(ASSETS/'nav-back.png').convert('RGB'), dtype=np.int16)[:,:,::-1]
+
+def active_nav_button(image, box, template):
+    # Shape matching alone also finds the button behind a dimmed modal.
+    x,y,w,h = box
+    return np.abs(image[y:y+h,x:x+w] - template).mean() <= 14
 
 def normalized_name(text):
     return re.sub(r'[^\u3400-\u9fffA-Za-z0-9]','',text).lower()

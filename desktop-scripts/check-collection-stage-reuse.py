@@ -1,5 +1,6 @@
 """Expected-state ROI checks and bounded frame reuse; no game or native calls."""
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -42,8 +43,9 @@ class ReuseProbe(Collector):
         self.pages = SimpleNamespace(is_page=lambda expected: self.actual_page == expected, page=lambda: self.actual_page)
         self.s = SimpleNamespace(controller=SimpleNamespace(post_click=lambda *p: Job()))
     def capture(self, record=True): self.frames += 1; self.frame_captured_at = self.clock
-    def input(self, label, call, click=None):
-        self.clicks.append(click); assert call().wait().succeeded
+    def input(self, label, call=None, locate=None):
+        click = locate()
+        self.clicks.append(click); assert self.s.controller.post_click(*click['point']).wait().succeeded
 
 probe = ReuseProbe()
 with patch('collection_worker.time.monotonic', lambda: probe.clock):
@@ -64,6 +66,6 @@ with patch('collection_worker.time.monotonic', lambda: probe.clock):
     assert len(probe.clicks) == 3
 
 report = {'passed': True, 'gameInputs': 0, 'listChecksOnlyRelevantROIs': True, 'sameFrameRecognitionCached': True, 'newFrameInvalidatesRecognition': True, 'popupBlocksListAction': True, 'freshFrameReusedWithoutRecapture': True, 'expiredFrameRecaptured': True, 'wrongStateNeverClicked': True}
-cache = project.parent / 'codex temp/nikke-desktop/automation-dev-copy'
+cache = Path(os.environ.get('NIKKE_CACHE_DIR', project.parent / 'codex temp/nikke-desktop')) / 'automation-dev-copy'
 (cache / 'stage-reuse-result.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
 print(json.dumps(report))

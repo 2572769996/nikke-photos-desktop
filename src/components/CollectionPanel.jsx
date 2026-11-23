@@ -122,7 +122,7 @@ export default function CollectionPanel({bridge,disabled,hwnd,onActive,includeSc
   </div>
 
   <div role="tabpanel" id="collection-panel-progress" aria-labelledby="collection-tab-progress" hidden={tab!=='progress'}>
-   <section className="maa-card"><div className="collection-progress-heading"><div><h3>{statusText}</h3><p>{currentName?`当前角色：${currentName}`:'启动后会先确认游戏处于大厅。'}{status?.returnedToLobby?' · 已返回大厅':''}</p></div><span>{status?.createdAt?duration((active?now:status.finishedAt||now)-status.createdAt):'尚未开始'}</span></div>
+   <section className="maa-card"><div className="collection-progress-heading"><div><h3>{statusText}</h3><p>{currentName?`当前角色：${currentName}`:'启动后会识别当前界面，回到大厅后开始采集。'}{status?.returnedToLobby?' · 已返回大厅':''}</p></div><span>{status?.createdAt?duration((active?now:status.finishedAt||now)-status.createdAt):'尚未开始'}</span></div>
     <progress aria-label="采集总进度" max="100" value={percentage}/><div className="collection-metrics"><div><strong>{finished} / {total}</strong><span>已处理角色</span></div><div><strong>{complete}</strong><span>完成</span></div><div><strong>{skipped.length}</strong><span>跳过</span></div><div><strong>{equipmentCount}</strong><span>已截图部位</span></div><div><strong>{unread.length}</strong><span>待核对词条</span></div></div>
     {status?.pendingOCR>0&&<p role="status">后台待识别 {status.pendingOCR} 件装备{status.returnedToLobby?'，游戏操作已结束，正在保存结果':'，游戏截图继续进行'}。</p>}
      <div role="status" className="maa-collection-status">{statusText} · 已完成 {complete} / {total} · 跳过 {skipped.length}{status?.returnedToLobby?' · 已返回大厅':''}{status?.progress?.captureBackend?` · 截图：${status.progress.captureBackend==='PrintWindow'?'PrintWindow / GDI（备用）':status.progress.captureBackend}`:''}</div>

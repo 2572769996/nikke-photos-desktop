@@ -46,7 +46,7 @@ export default function RerollEquipmentImportDialog({ onClose, onImport, purpose
       if(portrait?.complete&&portrait.naturalWidth){
         try {const canvas=document.createElement('canvas');canvas.width=canvas.height=72;canvas.getContext('2d').drawImage(portrait,0,0,72,72);avatarData=canvas.toDataURL('image/png')} catch { /* Missing portrait does not block equipment import. */ }
       }
-      onImport({ ...latest, equipments:single?[latest.equipments[equipmentIndex]]:latest.equipments, ...(single?{slot:equipmentIndex}:{}), name: displayName(character), ...(avatarData?{avatarData}:{}) })
+      onImport({ ...latest, equipments:single?[latest.equipments[equipmentIndex]]:latest.equipments, ...(single?{slot:equipmentIndex}:{}), ...(simulation?{equipmentClass:character.class}:{}), name: displayName(character), ...(avatarData?{avatarData}:{}) })
     }
     catch (error) { setMessage(error.message) }
   }

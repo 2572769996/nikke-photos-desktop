@@ -218,6 +218,16 @@
   overflow-wrap: anywhere;
 }
 
+.settings-sounds {
+  max-width: 700px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.settings-sounds .config-note { margin: 0; }
+
 .my-contact p { margin: 4px 0; }
 .my-contact a { color: var(--primary); text-underline-offset: 3px; }
 

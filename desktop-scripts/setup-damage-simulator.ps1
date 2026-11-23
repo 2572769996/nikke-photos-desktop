@@ -20,12 +20,19 @@ foreach ($source in $sources) {
     if ($source.Sha256 -ne $source.ExpectedSha256) { throw ('下载文件校验失败：' + $source.Name) }
 }
 $vendorPath = Join-Path $engineRoot 'vendor'
-if (!(Test-Path -LiteralPath $vendorPath)) {
-    $extractPath = Join-Path $downloadRoot 'upstream-67835ca'
-    Expand-Archive -LiteralPath (Join-Path $downloadRoot $sources[0].Zip) -DestinationPath $extractPath -Force
-    $sourceRoot = Join-Path $extractPath "nikke-calc-$engineCommit"
-    Copy-Item -LiteralPath $sourceRoot -Destination $vendorPath -Recurse
-}
+$expectedFiles = (Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $engineRoot 'vendor-hashes.json') | ConvertFrom-Json).PSObject.Properties.Name
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [IO.Compression.ZipFile]::OpenRead((Join-Path $downloadRoot $sources[0].Zip))
+try {
+    foreach ($name in $expectedFiles) {
+        $destination = Join-Path $vendorPath $name
+        if (Test-Path -LiteralPath $destination -PathType Leaf) { continue }
+        $entry = $archive.GetEntry("nikke-calc-$engineCommit/$name")
+        if (!$entry) { throw "固定上游归档缺少文件：$name" }
+        [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination))
+        [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination)
+    }
+} finally { $archive.Dispose() }
 $pythonPath = Join-Path $engineRoot 'python'
 if (!(Test-Path -LiteralPath (Join-Path $pythonPath 'python.exe'))) {
     Expand-Archive -LiteralPath (Join-Path $downloadRoot $sources[1].Zip) -DestinationPath $pythonPath -Force

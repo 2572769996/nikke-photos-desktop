@@ -3,6 +3,7 @@ import { currentLocale, t } from '../lib/i18n.js'
 import { DEFAULT_NIKKE_TOOL, NIKKE_TOOLS } from '../lib/nikkeTools.js'
 import '../styles/nikkeTools.css'
 import ResourceIncomePage from './ResourceIncomePage.jsx'
+import { playUiSound } from '../lib/uiSound.js'
 import OfficialCdkPage from './OfficialCdkPage.jsx'
 const StoryReaderPage = lazy(() => import('./StoryReaderPage.jsx'))
 const DamageSimulatorPage = lazy(() => import('./DamageSimulatorPage.jsx'))
@@ -26,6 +27,10 @@ function ToolFrame({ tool, active }) {
   const src = `${entry}?theme=${theme}&locale=${locale}`
 
   useEffect(() => {
+    if (active && tool.id === 'equipment-simulator') return () => playUiSound('endReveal')
+  }, [active, tool.id])
+
+  useEffect(() => {
     const observer = new MutationObserver(() => setTheme(document.documentElement.dataset.theme || 'light'))
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => observer.disconnect()
@@ -38,6 +43,7 @@ function ToolFrame({ tool, active }) {
       if (event.source !== frame.current?.contentWindow) return
       const expectedOrigin = new URL(src, location.href).origin
       if (event.origin !== expectedOrigin) return
+      if (activeRef.current && event.data?.type === 'nikke-tools:ui-sound') playUiSound(event.data.cue)
       if (activeRef.current && ['nikke-tools:file-drop', 'nikke-tools:file-drag'].includes(event.data?.type)) {
         window.dispatchEvent(new CustomEvent('nikke:tool-file-drop', { detail:event.data }))
       }

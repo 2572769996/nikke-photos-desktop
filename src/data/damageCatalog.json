@@ -2499,6 +2499,18 @@
       "favorite": false,
       "supported": true,
       "reason": ""
+    },
+    {
+      "code": "5188",
+      "resourceId": "530",
+      "name": "思凯",
+      "engineName": null,
+      "burst": "",
+      "weapon": "SR",
+      "element": "",
+      "favorite": false,
+      "supported": false,
+      "reason": "此固定版本上游尚未正式支持该角色"
     }
   ],
   "cubes": [

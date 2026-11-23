@@ -28,7 +28,7 @@ export function requestSimulatorEquipment(scope) {
     const receive=event=>{
       if(event.source!==parent||event.origin!==origin||event.data?.type!=='nikke-simulator:import-result'||event.data.requestId!==requestId)return
       if(event.data.canceled){finish(null,null);return}
-      try {finish(null,{gears:simulatorGears(event.data.payload,scope),name:event.data.payload.name,slot:event.data.payload.slot})}catch(error){finish(error)}
+      try {finish(null,{gears:simulatorGears(event.data.payload,scope),name:event.data.payload.name,slot:event.data.payload.slot,equipmentClass:event.data.payload.equipmentClass})}catch(error){finish(error)}
     }
     cancel=()=>{parent.postMessage({type:'nikke-simulator:cancel-import',requestId},origin);finish(null,null)}
     const timer=setTimeout(()=>{parent.postMessage({type:'nikke-simulator:cancel-import',requestId},origin);finish(Error('角色选择已超时，请重试'))},300000)

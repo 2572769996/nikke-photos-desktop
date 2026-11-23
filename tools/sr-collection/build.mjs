@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { assembleHtml } from './vendor/scripts/assemble.mjs'
+import { listenForUiClicks } from '../ui-click.js'
 
 const root = import.meta.dirname, vendor = path.join(root, 'vendor')
 const out = path.resolve(root, '../../public/tools/sr-collection')
@@ -26,7 +27,9 @@ const themeInit = `const t = new URLSearchParams(location.search).get('theme'); 
 html = html.replace('</script>', `</script><script>${themeInit}</script>`)
 const bridge = await fs.readFile(path.join(root, 'desktop-bridge.js'), 'utf8')
 const desktopCopy = await fs.readFile(path.join(root, 'desktop-copy.js'), 'utf8')
-html = html.replace('</body>', `<script>${desktopCopy}</script><script>${bridge}</script></body>`)
+html = html.replace('</body>', `<script>${desktopCopy}</script><script>${bridge}
+;(${listenForUiClicks.toString()})(document, cue => send({ type:'nikke-tools:ui-sound', cue }))
+</script></body>`)
 if (!html.includes('window.__SR_CALCULATOR__') || !html.includes('nikke-tools:ready')) throw Error('Incomplete desktop build')
 await fs.mkdir(out, {recursive:true})
 await fs.writeFile(path.join(out, 'index.html'), html)

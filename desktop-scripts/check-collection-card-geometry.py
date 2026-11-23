@@ -86,6 +86,8 @@ class CloseProbe(Collector):
         super().__init__({'characters': [{}]}, folder)
         self.stuck = stuck; self.clicks = []
         self.s = SimpleNamespace(page='overload', controller=SimpleNamespace(post_click=self.send))
+        self.frame_size=(1920,1080)
+        self.s.capture_backend=SimpleNamespace(inspect=lambda:{'size':self.frame_size})
         self.pages = SimpleNamespace(page=lambda: self.s.page, match=lambda *a: {'hit': True, 'box': anchor or [1159, 78, 30, 30]})
     def guard(self, *a, **kw): pass
     def capture(self, *a, **kw): pass

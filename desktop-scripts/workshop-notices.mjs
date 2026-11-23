@@ -35,7 +35,11 @@ const dest=path.join(tool,'public/source')
 fs.mkdirSync(path.join(dest,'src/assets/fonts'),{recursive:true})
 for(const font of ['NotoSansSC-Black-subset.woff2','Azonix_Regular.otf'])fs.copyFileSync(path.join(root,'src/assets/fonts',font),path.join(dest,'src/assets/fonts',font))
 fs.mkdirSync(path.join(dest,'tools/equipment-reroll'),{recursive:true})
+for(const resource of ['public/ui-assets/nikke/equipment/overload','public/ui-assets/nikke/equipment/overload-badge.png','src/assets/resources/custom-module.png','src/assets/resources/custom-lock.png']) {
+  fs.cpSync(path.join(root,resource),path.join(dest,resource),{recursive:true})
+}
 fs.copyFileSync(path.join(root,'tools/file-drop-relay.js'),path.join(dest,'tools/file-drop-relay.js'))
+fs.copyFileSync(path.join(root,'tools/ui-click.js'),path.join(dest,'tools/ui-click.js'))
 for(const name of ['src','vendor','tests','strategy-tests','simulator-tests','simulator','keys','index.html','vite.config.mjs','LICENSE']) {
   fs.cpSync(path.join(tool,name),path.join(dest,'tools/equipment-reroll',name),{recursive:true})
 }

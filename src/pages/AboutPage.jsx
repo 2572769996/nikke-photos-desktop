@@ -124,7 +124,9 @@ export default function AboutPage() {
 
     <section className="about-section" aria-labelledby="about-assets">
       <h2 id="about-assets">注意事项</h2>
-      <p>游戏头像、立绘、图标、名称与商标属于 SHIFT UP、PROXIMA BETA 及相关权利人。代码的开源许可不自动覆盖这些素材；公开可访问或用户提供的文件不等于取得公开再分发许可。</p>
+      <p>游戏头像、立绘、图标、音效、名称与商标属于 SHIFT UP、PROXIMA BETA 及相关权利人。代码的开源许可不自动覆盖这些素材；公开可访问或用户提供的文件不等于取得公开再分发许可。</p>
+      <p>按钮点击、洗练结果提示及效果变更的音效取自国服游戏客户端，相关权利归原权利人所有，公开再分发许可待核实。</p>
+      <Document title="思凯角色资料与图片来源（BlaBlaLink）" file="asset-notices/sky.json"/>
     </section>
   </main>
 }

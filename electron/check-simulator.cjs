@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(read,label){for(let i=0;i<200;i++){const v=await read();if(v)return v;await delay(75)}throw Error('Simulator timeout: '+label)}
 module.exports=async function checkSimulator(window,cacheRoot){
-  window.show();window.focus();
+  if (!window.webContents.isOffscreen()) {window.show();window.focus()}
   const web=window.webContents;
   const parent=web.mainFrame,calculator=web.mainFrame.frames.find(f=>f.url.includes('/equipment-reroll/index.html'));
   const hostBefore=await web.executeJavaScript('JSON.stringify({...localStorage})');
@@ -23,7 +23,10 @@ module.exports=async function checkSimulator(window,cacheRoot){
     await delay(200);
   }
   async function stats(stones,keys){const result=await frame.executeJavaScript("[...document.querySelectorAll('.sim-stats .stat-num')].map(e=>Number(e.textContent))");assert.deepEqual(result,[stones,keys])}
-  async function apply(){await button('应用新结果');await until(()=>frame.executeJavaScript("!document.querySelector('.el-dialog')||document.querySelector('.el-dialog').getClientRects().length===0"),'dialog closed')}
+  const openWash=()=>exec("document.querySelector('.wash-area button').click()");
+  const confirmWash=()=>exec("document.querySelector('.ol-preview .ol-primary').click()");
+  const openLocks=index=>exec(`document.querySelectorAll('.gear-card .ol-lock')[${index}].click()`);
+  async function apply(){await exec("document.querySelector('.ol-result .btn-apply').click()");await until(()=>frame.executeJavaScript("!document.querySelector('.el-dialog')||document.querySelector('.el-dialog').getClientRects().length===0"),'dialog closed')}
   // Complete a real RANDOM run with a deterministic RNG stream, not an auto-play solver.
   assert.equal(await frame.executeJavaScript("document.querySelector('.sim-controls input[value=single]').checked && document.querySelector('.sim-controls input[value=custom]').checked"),true);
   await radio('random');
@@ -32,8 +35,8 @@ module.exports=async function checkSimulator(window,cacheRoot){
   await until(()=>frame.executeJavaScript("!document.querySelector('.sim-controls button.is-loading')"),'initial theory');
   assert.match(await text(),/优越代码伤害 ≥ 阶数5/);
   await exec("Math.random=(()=>{const q=[0,0,.99,.99,.99];return()=>q.length?q.shift():.99})()");
-  await until(()=>frame.executeJavaScript("!![...document.querySelectorAll('button')].find(e=>e.textContent.includes('变更效果')&&!e.disabled)"),'wash');
-  await exec("[...document.querySelectorAll('.gear-card button')].find(e=>e.textContent.includes('变更效果')).click()");
+  await until(()=>frame.executeJavaScript("!!document.querySelector('.ol-action:not(:disabled)')"),'wash');
+  await openWash(); await confirmWash();
   await apply();await until(()=>frame.executeJavaScript("document.body.innerText.includes('已通关')"),'random win');
   await stats(1,0);assert.match(await text(),/实际消耗与初始期望对比/);assert.doesNotMatch(await text(),/期望计算失败/);
   await exec("document.querySelector('.result-panel').scrollIntoView({block:'center'})");await delay(400);
@@ -50,13 +53,22 @@ module.exports=async function checkSimulator(window,cacheRoot){
   await choose('.custom-panel .slot-list .slot-row',0,'防御力');
   await choose('.custom-panel .slot-list .slot-row',1,'阶数1（4.77%）');
   await button('开始模拟');await until(()=>frame.executeJavaScript("!document.querySelector('.sim-controls button.is-loading')"),'custom theory');
-  await stats(0,0);assert.match(await text(),/攻击力\s*4\.77%/);assert.match(await text(),/石头锁/);
+  await stats(0,0);assert.match(await text(),/攻击力\s*4\.77%/);assert.match(await exec("document.querySelector('.gear-card .ol-lock').getAttribute('aria-label')"),/石头锁/);
+  await openLocks(1);
   await exec("document.querySelectorAll('.gear-card .slot-row')[1].querySelectorAll('input[type=checkbox]')[1].click()");
-  await stats(0,0);await exec("[...document.querySelectorAll('.gear-card button')].find(e=>e.textContent.includes('变更效果')).click()");
-  await stats(3,30);await button('保留原词条');await delay(150);await stats(3,30);
+  await stats(0,0);await openWash();await stats(0,0);
+  assert.match(await text(),/× 30/);
+  await delay(300);
+  fs.writeFileSync(path.join(cacheRoot,'simulator-effect-confirm.png'),(await web.capturePage()).toPNG());
+  await exec("document.querySelector('.ol-preview .el-dialog__headerbtn').click()");
+  await delay(300); await stats(0,0); await openWash(); await confirmWash();
+  await stats(3,30);await exec("document.querySelector('.ol-result .btn-keep').click()");await delay(150);await stats(3,30);
+  await openLocks(1);
   assert.equal(await frame.executeJavaScript("document.querySelectorAll('.gear-card .slot-row')[1].querySelectorAll('input[type=checkbox]')[1].checked"),true);
-  await exec("[...document.querySelectorAll('.gear-card button')].find(e=>e.textContent.includes('变更效果')).click()");
-  await button('保留原词条并再洗');await stats(9,90);await button('保留原词条');await delay(100);
+  await openWash(); await confirmWash();
+  await until(()=>frame.executeJavaScript("!!document.querySelector('.ol-result .btn-again:enabled')"),'repeat ready');
+  await button('保留原词条并再洗');await stats(9,90);await exec("document.querySelector('.ol-result .btn-keep').click()");await delay(100);
+  await openLocks(0);
   await exec("[...document.querySelectorAll('.gear-card .slot-row')[0].querySelectorAll('button')].find(e=>e.textContent.trim()==='解锁').click()");await stats(9,90);
   await parent.executeJavaScript("document.querySelector('#tab-equipment-reroll').click();document.querySelector('#tab-equipment-simulator').click()");await stats(9,90);
   await button('查看期望');await exec("document.querySelector('.result-panel').scrollIntoView({block:'center'})");await delay(400);
@@ -78,10 +90,10 @@ module.exports=async function checkSimulator(window,cacheRoot){
   fs.writeFileSync(path.join(cacheRoot,'reroll-simulator-dark.png'),(await web.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());
   await button('结束本局');
   const appearance=await require('./check-simulator-appearance.cjs')({frame,web,parent,cacheRoot,choose,button,radio,exec});
+  await parent.executeJavaScript("document.querySelector('#tab-equipment-reroll').click()");
   assert.equal(await web.executeJavaScript('JSON.stringify({...localStorage})'),hostBefore);
   assert.equal(await calculator.executeJavaScript('JSON.stringify({...localStorage})'),calcBefore);
   assert.equal(await frame.executeJavaScript("typeof window.nikkeDesktop"),'undefined');
-  await parent.executeJavaScript("document.querySelector('#tab-equipment-reroll').click()");
   return {appearance,randomCompleted:true,customInputs:true,locksAndCosts:true,keepRepeat:true,separateResourceCounters:true,restartAndReset:true,fourGearCustom:true,ruleSwitch:true,tabStateRetained:true,hostAndCalculatorStorageUnchanged:true,noAccountBridge:true,darkTheme:true};
 }
 

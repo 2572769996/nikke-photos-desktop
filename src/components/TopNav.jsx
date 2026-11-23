@@ -46,7 +46,7 @@ function SunIcon() {
 export default function TopNav() {
   const { pathname } = useLocation()
   const roleActive = pathname === '/' || pathname.startsWith('/character/') || pathname === '/my-nikke'
-  const moreActive = ['/my', '/profiles', '/schemes', '/bot-share', '/changelog', '/about'].includes(pathname) || pathname.startsWith('/custom-nikke/')
+  const moreActive = ['/my', '/settings', '/profiles', '/schemes', '/bot-share', '/changelog', '/about'].includes(pathname) || pathname.startsWith('/custom-nikke/')
   const tabActive = (item, isActive) => item.to === '/' ? roleActive : item.to === '/my' ? moreActive : item.to === '/equipment-collection' ? isActive || pathname === '/automation-diagnostics' : isActive
   const [profile, setProfile] = useState(() => getCurrentProfile())
   const [menuOpen, setMenuOpen] = useState(false)

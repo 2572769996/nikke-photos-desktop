@@ -114,7 +114,7 @@ class CaptureBackend:
         self.close()
         if self.policy == 'printwindow-only':
             raise RuntimeError('PrintWindow/GDI专用测试连接失败，FramePool已禁用；请查看截图后端日志')
-        raise RuntimeError('FramePool和备用PrintWindow/GDI均不可用, 已停止; 请进入大厅并查看截图后端日志')
+        raise RuntimeError('FramePool和备用PrintWindow/GDI均不可用，请查看截图后端日志')
 
     def capture(self):
         if self.closed or self.controller is None:

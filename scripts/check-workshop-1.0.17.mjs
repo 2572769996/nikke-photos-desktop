@@ -5,14 +5,15 @@ import crypto from 'node:crypto'
 import { CHARACTERS, findCharacter, matchesSearch, applyFilters } from '../src/lib/roster.js'
 import { CUBES, findCube, findCubeByCubeId } from '../src/lib/cubes.js'
 import { CUBE_IDS, encodeShareCode, decodeShareCode } from '../src/lib/shareCode.js'
-import { isCnCharacter } from '../src/lib/cnRoster.js'
+import { isCnCharacter, isCnCharacterAt } from '../src/lib/cnRoster.js'
 const project=path.resolve(import.meta.dirname,'..')
 const read=file=>fs.readFileSync(path.join(project,file))
 const source=JSON.parse(read('scripts/character-sources/workshop-1.0.17.json'))
 assert.equal(read('scripts/character-sources/workshop-1.0.17.json').toString(),read('public/asset-notices/workshop-1.0.17.json').toString())
-assert.equal(CHARACTERS.length,208)
-assert.equal(new Set(CHARACTERS.map(c=>c.nameCode)).size,208)
-assert.equal(CHARACTERS.filter(isCnCharacter).length,152)
+assert.equal(CHARACTERS.length,209)
+assert.equal(new Set(CHARACTERS.map(c=>c.nameCode)).size,209)
+const workshopReleaseTime=Date.parse('2026-10-31T12:00:00+08:00')
+assert.equal(CHARACTERS.filter(c=>isCnCharacterAt(c,workshopReleaseTime)).length,152)
 for(const [code,resourceId,name,weapon,burst,klass] of [
  ['5185','19','玛丽安：女王','MG','Step3','Attacker'],
  ['5186','472','红莲：弑神','AR','Step3','Attacker'],
@@ -41,4 +42,4 @@ assert.deepEqual(findCube(10015),findCubeByCubeId(1000318))
 assert.equal(findCube(10015).nameCn,'遗迹外框魔方')
 assert.deepEqual(CUBE_IDS,[10001,10002,10003,10004,10005,10006,11001,13001,12001,13002,12002,10009,10007,10008,10010,10012,10013,10015])
 for(const asset of source.assets){const b=read(asset.file);assert.equal(b.length,asset.bytes);assert.equal(crypto.createHash('sha256').update(b).digest('hex'),asset.sha256,asset.file)}
-console.log('Workshop 1.0.17: 208 identities; CN152 unchanged; three characters/classification/local art and nine skill references; four skins; cube mapping and append-only NKP2 roundtrip; 21 asset hashes passed.')
+console.log('Workshop 1.0.17: 209 identities; CN152 at release; three characters/classification/local art and nine skill references; four skins; cube mapping and append-only NKP2 roundtrip; 21 asset hashes passed.')

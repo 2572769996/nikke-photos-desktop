@@ -13,13 +13,21 @@ app.whenReady().then(async()=>{
  const until=async(fn,name)=>{for(let i=0;i<160;i++){if(await fn())return;await delay(100)}throw Error(name)};
  const shot=async(name)=>{for(let i=0;i<3;i++){await delay(500);try{fs.writeFileSync(path.join(cache,name+'.png'),(await web.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());return}catch(e){if(i===2)throw e}}};
  await win.loadURL('nikke://app/');await until(()=>web.executeJavaScript("!!document.querySelector('.topbar')"),'host');await shot('host');
+ if(process.argv.includes('--overload')) {
+   const sounds=await require('../electron/check-ui-sounds.cjs')(win);
+   await web.executeJavaScript("document.querySelector('#tab-equipment-reroll').click()");
+   await until(()=>web.mainFrame.frames.find(f=>f.url.includes('/equipment-reroll/index.html'))?.executeJavaScript("document.documentElement.dataset.calculatorReady==='true'"),'calculator ready');
+   const behavior=await require('../electron/check-simulator.cjs')(win,cache);
+   const equipmentImport=await require('../electron/check-reroll-import.cjs')({window:win,cacheRoot:cache});
+   fs.writeFileSync(path.join(cache,'metrics.json'),JSON.stringify({sounds,behavior,equipmentImport},null,2));app.exit(0);return;
+ }
  const equipmentEntry=await require('../electron/check-equipment-rules.cjs')(win,cache);
  if(process.env.NIKKE_EQUIPMENT_ENTRY_ONLY){fs.writeFileSync(path.join(cache,'metrics.json'),JSON.stringify({equipmentEntry},null,2));app.exit(0);return}
  await web.executeJavaScript("location.hash='/tools'");await until(()=>web.executeJavaScript("!!document.querySelector('#tab-equipment-reroll')"),'tab');await web.executeJavaScript("document.querySelector('#tab-equipment-reroll').click()");
  let outer;await until(async()=>{outer=web.mainFrame.frames.find(f=>f.url.startsWith('nikke://reroll/equipment-reroll/')&&!f.url.includes('/simulator/'));return !!outer},'outer');
- await until(()=>outer.executeJavaScript("!!document.querySelector('.expectation-outline')"),'calculator ready');
+ await until(()=>outer.executeJavaScript("document.documentElement.dataset.calculatorReady==='true'"),'calculator ready');
  const assert=require('node:assert/strict');
- assert.deepEqual(await web.executeJavaScript("[...document.querySelectorAll('.tools-switcher button')].map(b=>b.textContent)"),['红球计算器','洗词条计算器','装备洗练模拟器','订制模组记录']);
+ assert.deepEqual(await web.executeJavaScript("[...document.querySelectorAll('.tools-switcher button')].map(b=>b.textContent)"),(await import('../src/lib/nikkeTools.js')).NIKKE_TOOLS.map(tool=>tool.name));
  assert.equal(await outer.executeJavaScript("!!document.querySelector('.reroll-tabs') || !!document.querySelector('#simulator-frame')"),false);
  await web.executeJavaScript("document.querySelector('#tab-equipment-simulator').click()");
  let inner;await until(async()=>{inner=web.mainFrame.frames.find(f=>f.url.includes('/simulator/index.html'));return !!inner},'inner');const run=s=>inner.executeJavaScript(s);
@@ -50,8 +58,8 @@ app.whenReady().then(async()=>{
  win.setSize(1440,1000);await run("document.documentElement.dataset.theme='light';document.documentElement.classList.remove('dark');document.querySelector('.sim-controls input[value=single]').click()");await delay(150);
  await run("document.querySelector('.sim-controls input[value=random]').click()");await delay(150);
  await run("Math.random=(()=>{const q=[.31,0,.9,.9,0,0,.9,0];return()=>q.length?q.shift():.99})();[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='开始随机模拟').click()");
- await until(()=>run("!!document.querySelector('.slot-affix')&&!document.querySelector('.sim-controls button.is-loading')"),'started');await shot('active-light');report.active=await metrics();
- await run("Math.random=(()=>{const q=[0,0,.99,.99,.99];return()=>q.length?q.shift():.99})();document.querySelector('.gear-card button.el-button--primary').click()");await until(()=>run("!!document.querySelector('.el-dialog')&&document.querySelector('.el-dialog').getBoundingClientRect().height>0"),'dialog');await shot('wash-light');
+ await until(()=>run("!!document.querySelector('.ol-slot')&&!document.querySelector('.sim-controls button.is-loading')"),'started');await shot('active-light');report.active=await metrics();
+ await run("Math.random=(()=>{const q=[0,0,.99,.99,.99];return()=>q.length?q.shift():.99})();document.querySelector('.wash-area button').click()");await until(()=>run("!!document.querySelector('.el-dialog')&&document.querySelector('.el-dialog').getBoundingClientRect().height>0"),'dialog');await shot('wash-confirm');await run("document.querySelector('.ol-preview .ol-primary').click()");await until(()=>run("!!document.querySelector('.ol-result .btn-apply')"),'result');await shot('wash-light');
  await run("document.documentElement.dataset.theme='dark';document.documentElement.classList.add('dark')");await shot('wash-dark');
  await web.executeJavaScript("document.querySelector('#panel-equipment-simulator iframe').src='nikke://reroll/equipment-reroll/simulator/index.html?theme=light';document.querySelector('#tab-equipment-reroll').click()");await delay(200);
  if(!process.env.NIKKE_UI_VISUAL_ONLY){

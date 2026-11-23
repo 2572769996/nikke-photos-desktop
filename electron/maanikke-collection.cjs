@@ -157,7 +157,7 @@ function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execut
   }
   if(event.kind==='candidate')log(job,'候选确认：'+byCode.get(event.data.nameCode)?.nameCn+'（'+event.data.reason+'）');
   if(event.kind==='identity')log(job,'立绘辅助核对：'+byCode.get(event.data.nameCode)?.nameCn+' · '+(event.data.artwork?.hit?'命中本地皮肤参考':'未命中，使用已确认文字和属性'));
-  if(event.kind==='started'){job.status.stage='collecting';log(job,'已确认从大厅开始');}
+  if(event.kind==='started'){job.status.stage='collecting';log(job,'已确认大厅，开始角色采集');}
   if(event.kind==='character'){
    const code=event.data.nameCode,entry=job.status.draft[code];
    if(!entry||SLOTS.some(slot=>!entry.equipment[slot]))throw Error('角色四槽结果尚未保存');
