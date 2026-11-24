@@ -1,0 +1,35 @@
+.ordinary-banner {
+  background: #101821 url('/recruitment/ordinary/poster.webp') center 35% / cover no-repeat;
+}
+.ordinary-banner::before { inset: 0; background: #101821bb; opacity: 1; filter: none; }
+.ordinary-controls::before { background: radial-gradient(ellipse at 50% 100%, #0a141ef5, #101a28cb 49%, transparent 72%); }
+.ordinary-heading { text-align: center; text-shadow: 0 2px 6px #090c14; }
+.ordinary-heading h2 { margin: 0; color: white; font-size: clamp(22px, 3.3vh, 32px); line-height: 1.12; letter-spacing: .08em; }
+.ordinary-controls .recruit-draw-actions .recruit-discount { background: linear-gradient(115deg,#ffe17b,#e6a92d); }
+.ordinary-options { width: min(100%,460px); display: flex; align-items: center; justify-content: space-between; padding: 0 5px; }
+.ordinary-wishlist-button { color: white; border: 1px solid #daefff; border-radius: 3px; background: #0783bb; padding: 4px 12px; font-size: 13px; }
+.ordinary-wishlist-button small { margin-left: 5px; }
+.ordinary-controls .ordinary-wishlist-button:disabled { opacity: .83; background: #4a5863; }
+.ordinary-bonus-button {
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 4px 12px 5px; color: #222021;
+  border: 2px solid #f9cd68; border-radius: 5px; background: linear-gradient(112deg,#ffd35b,#f49c21);
+  box-shadow: 0 2px 8px #140d0bab; transform: skew(-5deg);
+}
+.ordinary-bonus-faces { grid-column: 1 / -1; display: flex; justify-content: center; gap: 2px; }
+.ordinary-bonus-faces img { width: clamp(30px,5.4vh,48px); height: clamp(27px,4.6vh,42px); object-fit: cover; border: 1px solid #fceed5; background: #443e46; }
+.ordinary-bonus-title { align-self: center; width: clamp(86px,13vh,124px); height: auto; }
+.ordinary-wish-hint { margin: 0; padding: 2px 8px; border-radius: 3px; background: #132535e8; font-size: 12px; }
+.ordinary-bonus-button small { color: #fff4d4; background: #42312c; border-radius: 2px; padding: 2px 6px; }
+.ordinary-console { font-size: 13px; gap: 7px; }
+.ordinary-silver { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.ordinary-silver img { width: 28px; height: 24px; object-fit: contain; }
+.ordinary-silver b { color: #c6e8ff; font-size: 18px; }
+.ordinary-bonus-choices { margin: 15px 0; border: 0; padding: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; }
+.ordinary-bonus-choices legend { margin-bottom: 6px; }
+.ordinary-bonus-choices label { display: flex; align-items: center; gap: 6px; padding: 5px; background: #343943; border: 1px solid #55616e; border-radius: 4px; cursor: pointer; }
+.ordinary-bonus-choices label:has(:checked) { border-color: #a2dff7; background: #32485a; }
+.ordinary-bonus-choices img { width: 32px; height: 32px; object-fit: contain; }
+@media (max-width: 540px) {
+  .ordinary-console { gap: 6px; }
+  .ordinary-silver { gap: 4px; }
+}

@@ -277,6 +277,7 @@ import { CHAR_TIER_RANGES } from './affix_tier_ranges.js'
 import AffixWorker from './expectation.worker.js?worker'
 import { requestSimulatorEquipment } from './equipment-import.js'
 import { sendToolSound } from '../../../file-drop-relay.js'
+import { effectMotionReduced } from '../../../ui-click.js'
 import GameAffix from './GameAffix.vue'
 import GearPortrait from './GearPortrait.vue'
 import moduleIcon from '../../../../src/assets/resources/custom-module.png'
@@ -394,11 +395,18 @@ watch(pendingWash, (result, previous, onCleanup) => {
   if (!result) return
   const rows = result.rows
   sendToolSound('wash' + rows.filter(row => row.new.effect !== 'wd').length)
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reducedMotion = effectMotionReduced('wash')
   revealedRows.value = reducedMotion ? rows.length : 0
   if (reducedMotion) completedReveal.value = result
   const timers = []
+  const finishIfReduced = () => {
+    if (!effectMotionReduced('wash')) return
+    for (const timer of timers) clearTimeout(timer)
+    revealedRows.value = rows.length
+    completedReveal.value = result
+  }
   if (!reducedMotion) {
+    window.addEventListener('nikke-tools:motion-change', finishIfReduced)
     // 第一声在 626 ms，后续每隔 201 ms；空栏在两声之间呈现。
     let nextBeat = 626
     let lastReveal = 0
@@ -412,6 +420,7 @@ watch(pendingWash, (result, previous, onCleanup) => {
     })
   }
   onCleanup(() => {
+    window.removeEventListener('nikke-tools:motion-change', finishIfReduced)
     for (const timer of timers) clearTimeout(timer)
     sendToolSound('endReveal')
   })

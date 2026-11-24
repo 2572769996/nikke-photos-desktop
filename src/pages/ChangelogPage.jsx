@@ -1,6 +1,7 @@
 // 更新记录：历史所有版本一览（「更多」里的入口）
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CHANGELOG, CURRENT_VERSION, displayDate } from '../data/changelog.js'
+import ChangelogItems from '../components/ChangelogItems.jsx'
 import { t } from '../lib/i18n.js'
 import '../styles/changelog.css'
 
@@ -37,11 +38,7 @@ export default function ChangelogPage() {
               <b>v{entry.version}</b>
               {entry.version === CURRENT_VERSION ? <span className="cl-badge">{t('当前版本')}</span> : null}
             </div>
-            <ol className="cl-items">
-              {entry.items.map((item, index) => (
-                <li key={typeof item==='string'?item:item.title}>{index + 1}、{typeof item==='string'?item:<><strong>{item.title}</strong>{item.details?.length>0&&<ul className="cl-details">{item.details.map(detail=><li key={detail}>{detail}</li>)}</ul>}</>}</li>
-              ))}
-            </ol>
+            <ChangelogItems entry={entry} />
             <div className="cl-date">{displayDate(entry.date)}</div>
           </section>
         ))}

@@ -1,0 +1,20 @@
+@scope (:root[data-reduce-motion="true"]) to (.nikke-click-spark, .nikke-click-light, .revealed-effect) {
+  :scope, *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root, *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    transition-delay: 0s !important;
+    animation-duration: .01ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
+}

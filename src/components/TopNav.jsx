@@ -11,6 +11,7 @@ const TABS = [
   { to: '/data', label: '数据录入' },
   { to: '/stats', label: '数据统计' },
   { to: '/tools', label: '妮姬工具' },
+  { to: '/recruitment', label: '招募模拟' },
   { to: '/equipment-collection', label: '装备采集' },
   { to: '/my', label: '更多' },
 ]

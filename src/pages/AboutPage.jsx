@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CURRENT_VERSION } from '../data/changelog.js'
+import { specialRecruitBanners } from '../lib/recruitment.js'
 import '../styles/about.css'
 
 const local = (file) => `${import.meta.env.BASE_URL}${file}`
@@ -126,6 +127,21 @@ export default function AboutPage() {
       <h2 id="about-assets">注意事项</h2>
       <p>游戏头像、立绘、图标、音效、名称与商标属于 SHIFT UP、PROXIMA BETA 及相关权利人。代码的开源许可不自动覆盖这些素材；公开可访问或用户提供的文件不等于取得公开再分发许可。</p>
       <p>按钮点击、洗练结果提示及效果变更的音效取自国服游戏客户端，相关权利归原权利人所有，公开再分发许可待核实。</p>
+      <p>蓝色点击特效使用国际服客户端的通用点击图集 fx_touch_point_atlas，按 UITouchEffect 的粒子大小、发射时间和材质混合方式在桌面端播放。</p>
+      <p>特殊招募使用国际服客户端中玛丽安：女王、思凯、红莲：弑神各自的展示影片，以及国服客户端的通用招募素材及原声。闸门、企业转场、角色登场和结果揭晓按客户端动画时间线重建。</p>
+      <p>思凯池的角色名条、单抽与十连按钮，以及红莲池的招募界面，参照当期游戏实录。</p>
+      <Source>https://www.youtube.com/watch?v=AwAwkYmSE3A&amp;t=3160s<br/>https://www.bilibili.com/video/BV1oPs26pEJW/?t=41.5</Source>
+      <p>玛丽安、红莲和思凯各期 145 名角色的概率分别核对国际服 2026 年 10 月 29 日及 11 月 19 日的公示。三个特殊池与联动自选池共用黄金积分券，抽获和兑换记录按池保存。</p>
+      <p>联动自选是本地模拟规则。玩家从本期群像中选择一名联动 SSR 作为 2% UP。其余角色沿用思凯池的非 UP 名单与分组概率。</p>
+      <p>结算使用游戏通用结算图集和 SkyXMoon/NikkeAssets 收录的角色半身像。招募配乐为 Cosmograph 的《ShowCase》。升降机与等待拉锁共用游戏版 Menu Gacha Default 的开头，开门演出中切换至 Menu Gacha Open，翻牌时切入 Default 约 1 分 02 秒处，与玛丽安当期实录对应。</p>
+      <Source>https://github.com/SkyXMoon/NikkeAssets<br/>https://www.youtube.com/watch?v=hMOFSz6MOes<br/>https://downloads.khinsider.com/game-soundtracks/album/goddess-of-victory-nikke-android-ios-mobile-gamerip-2022<br/>https://www.bilibili.com/video/BV1oPs26pEJW/?t=320</Source>
+      <p>首次获得和重复奖励根据本地模拟抽取记录判定。结算构图与积分券参考实机截图，躯体标签图案与数量参考 GameWith 资料。珠宝和高级招募券图标取自 Loot &amp; Waifus 收录的游戏道具图。</p>
+      <Source>https://m.ruliweb.com/community/board/300143/read/73644902<br/>https://gamewith.jp/nikke/article/show/372029<br/>https://lootandwaifus.com/tooltips/nikke/gem.webp<br/>https://lootandwaifus.com/tooltips/nikke/advanced-recruit-voucher.webp</Source>
+      <Source>{specialRecruitBanners.marian.noticeUrl}<br/>https://www.blablalink.com/post/detail?post_uuid=2941068716346652848&amp;lang=ko<br/>{specialRecruitBanners.marian.ratesUrl}<br/>{specialRecruitBanners.sky.noticeUrl}<br/>{specialRecruitBanners.sky.ratesUrl}</Source>
+      <p>常驻模拟池以国际服 2026 年 11 月 19 日公示的 144 名角色为基础，额外开放思凯、玛丽安：女王、红莲：弑神。模拟从第一抽开始使用完整的 20 人愿望清单。每日半价、愿望清单的分组概率和 2026 年追加招募参考国际服公告。</p>
+      <Source>https://docs.google.com/spreadsheets/d/e/2PACX-1vQdVV_dKg7lTl9KkIIU4ZylWgE4qq8WzDHnMC9ljzbiIsZwY6vnqZa2PkAIeDUiTO8du4CqTv9KufYE/pubhtml#gid=647451479<br/>https://nikke.hotcool.tw/News_detail-56<br/>https://nikke.hotcool.tw/News_detail-121<br/>https://nikke.hotcool.tw/News_detail-175</Source>
+      <p>普通招募背景取自国际服客户端，并与同期游戏画面对照。普通招募券和白银积分券图标由 Loot &amp; Waifus 收录。</p>
+      <Source>https://trees.gamemeca.com/amp/view.php?gid=1782927<br/>https://lootandwaifus.com/tooltips/nikke/recruit-voucher.webp<br/>https://lootandwaifus.com/tooltips/nikke/silver-mileage-ticket.webp</Source>
       <Document title="思凯角色资料与图片来源（BlaBlaLink）" file="asset-notices/sky.json"/>
     </section>
   </main>

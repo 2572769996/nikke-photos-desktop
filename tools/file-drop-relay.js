@@ -1,4 +1,7 @@
-import { listenForUiClicks } from './ui-click.js'
+import { listenForClickEffect, listenForUiClicks } from './ui-click.js'
+import './ui-click.css'
+import { installToolMotionPreference } from './tool-motion.js'
+import './tool-motion.css'
 
 function send(data) {
   if (parent === window) return
@@ -12,7 +15,9 @@ export function sendToolSound(cue) {
 }
 
 export function installFileDropRelay() {
+  installToolMotionPreference()
   listenForUiClicks(document, sendToolSound)
+  listenForClickEffect(document)
   const files = event => Array.from(event.dataTransfer?.types || []).includes('Files')
   window.addEventListener('dragenter', event => { if (files(event)) send({ type:'nikke-tools:file-drag', active:true }) })
   window.addEventListener('dragover', event => { if(files(event)){ event.preventDefault(); event.dataTransfer.dropEffect='copy' } })

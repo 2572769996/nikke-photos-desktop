@@ -1,0 +1,6 @@
+.recruit-record-stats { margin: 16px 0; }
+.recruit-stats-rates { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.recruit-stats-rates > div { flex: 1 1 125px; padding: 9px 12px; border: 1px solid #504957; border-radius: 5px; }
+.recruit-stats-rates small { display: block; color: #d0cad4; }
+.recruit-stats-rates strong { display: block; color: #ffe2a5; font-size: 25px; font-variant-numeric: tabular-nums; }
+.recruit-record-stats p { margin: 6px 0; font-size: 12px; }

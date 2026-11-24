@@ -17,7 +17,8 @@ import { getCustomNikkeError, getCustomNikkeRevision, subscribeCustomNikkes } fr
 import MyNikkePage from './pages/MyNikkePage.jsx'
 import MyPage from './pages/MyPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
-import { listenForUiClicks } from '../tools/ui-click.js'
+import { listenForClickEffect, listenForUiClicks } from '../tools/ui-click.js'
+import '../tools/ui-click.css'
 import { playUiSound } from './lib/uiSound.js'
 import ProfilesPage from './pages/ProfilesPage.jsx'
 import SchemesPage from './pages/SchemesPage.jsx'
@@ -33,9 +34,11 @@ import { shouldShowUpdateNotice } from './lib/updateNotice.js'
 /** 拖放导入统一落到这一页：它订阅了存档变更，导入完列表会立刻刷新 */
 const IMPORT_LANDING_PATH = '/profiles'
 const BackupPage = lazy(() => import('./pages/BackupPage.jsx'))
+const RecruitmentPage = lazy(() => import('./pages/RecruitmentPage.jsx'))
 
 export default function App() {
   useEffect(() => listenForUiClicks(document, playUiSound), [])
+  useEffect(() => listenForClickEffect(document), [])
   useSyncExternalStore(subscribeCustomNikkes, getCustomNikkeRevision)
   const navigate = useNavigate()
   const location = useLocation()
@@ -88,6 +91,7 @@ export default function App() {
         <Route path="/bot-share" element={<BotSharePage />} />
         <Route path="/stats" element={<StatsPage />} />
         <Route path="/tools" element={<NikkeToolsPage />} />
+        <Route path="/recruitment" element={<Suspense fallback={<main className="page">正在加载招募模拟…</main>}><RecruitmentPage /></Suspense>} />
         <Route path="/automation-lab" element={<Navigate to="/equipment-collection" replace />} />
         <Route path="/automation-diagnostics" element={<MaaNikkeLabPage />} />
         <Route path="/equipment-collection" element={<EquipmentCollectionPage />} />

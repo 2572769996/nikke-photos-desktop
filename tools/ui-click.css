@@ -1,0 +1,61 @@
+:is(.nikke-click-spark, .nikke-click-light):popover-open {
+  position: fixed;
+  inset: auto;
+  /* 1.8 game units at scale 150, on the expanding 1080 × 1920 reference canvas. */
+  width: min(25vw, 14.0625vh);
+  aspect-ratio: 1;
+  height: auto;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+  translate: -50% -50%;
+  background: transparent;
+}
+:is(.nikke-click-spark, .nikke-click-light)::backdrop { background: transparent; pointer-events: none; }
+:is(.nikke-click-spark, .nikke-click-light):popover-open::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-size: 600% 400%;
+  background-repeat: no-repeat;
+  animation: nikke-touch-column 100ms steps(6, jump-none) 4 forwards,
+             nikke-touch-row 400ms steps(4, jump-none) both;
+}
+.nikke-click-spark::before { background-image: url('./ui-click-base.webp'); }
+.nikke-click-light:popover-open { mix-blend-mode: plus-lighter; }
+.nikke-click-light::before { background-image: url('./ui-click-glow.webp'); }
+@keyframes nikke-touch-column { from { background-position-x: 0%; } to { background-position-x: 100%; } }
+@keyframes nikke-touch-row { from { background-position-y: 0%; } to { background-position-y: 100%; } }
+
+.nikke-click-particle {
+  position: absolute;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  rotate: 45deg;
+  mask: url('./ui-click-spark.webp') center / contain no-repeat;
+  mix-blend-mode: plus-lighter;
+  animation: nikke-touch-flight 350ms linear both, nikke-touch-size 350ms both, nikke-touch-alpha 350ms linear both;
+  animation-delay: var(--burst-delay);
+}
+@keyframes nikke-touch-flight {
+  from { left: var(--from-x); top: var(--from-y); }
+  to { left: var(--to-x); top: var(--to-y); }
+}
+@keyframes nikke-touch-size {
+  0% { scale: .47986; animation-timing-function: cubic-bezier(.33333,.90103,.66667,.97594); }
+  9.4114% { scale: .89163; animation-timing-function: cubic-bezier(.33333,.87986,.66667,.75398); }
+  100% { scale: 1; }
+}
+@keyframes nikke-touch-alpha {
+  0%, 100% { opacity: 0; }
+  7.886% { opacity: var(--peak-alpha); }
+  31.542% { opacity: var(--mid-alpha); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.nikke-click-spark, .nikke-click-light):popover-open { visibility: hidden; }
+}
+:root[data-click-effect="false"] :is(.nikke-click-spark, .nikke-click-light):popover-open { visibility: hidden; }

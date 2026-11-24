@@ -6,7 +6,9 @@ import './styles/base.css'
 import './styles/profiles.css'
 import App from './App.jsx'
 import { initializeCustomNikkes } from './lib/customNikkeStore.js'
+import { initializeMotionPreference } from './lib/motionPreference.js'
 
+initializeMotionPreference()
 // Resolve persistent local identities before any route reads a character ID.
 await initializeCustomNikkes().catch(error => console.warn('[自定义角色库]', error.message))
 

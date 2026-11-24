@@ -178,7 +178,7 @@
   .damage-member-actions{gap:4px;margin-inline:0}.damage-page .damage-member-actions button{min-width:44px;min-height:44px}
   .damage-dialog>header>button{min-width:44px}.damage-page .damage-checkbox input{min-height:0}.damage-checkbox{min-height:44px}
 }
-@media(prefers-reduced-motion:reduce) {
-  .damage-page *,.damage-page *::before,.damage-page *::after{transition:none!important;scroll-behavior:auto!important}
-  .damage-spinner{animation:none;border-style:dotted}
+:root[data-reduce-motion="true"] .damage-page {
+  & *, & *::before, & *::after { transition:none!important; scroll-behavior:auto!important; }
 }
+:root[data-reduce-motion="true"] .damage-spinner{animation:none;border-style:dotted}

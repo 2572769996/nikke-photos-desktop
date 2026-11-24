@@ -21,6 +21,9 @@ def navigation_frame(raw):
 
 HOME_BUTTON = np.asarray(Image.open(ASSETS/'home-button.png').convert('RGB'), dtype=np.int16)[:,:,::-1]
 BACK_BUTTON = np.asarray(Image.open(ASSETS/'nav-back.png').convert('RGB'), dtype=np.int16)[:,:,::-1]
+COLLECTIBLE_TOGGLE_BOXES = ([18,893,58,31], [18,932,58,31])
+COLLECTIBLE_LABEL = np.asarray(Image.open(ASSETS/'collectible-label.png').convert('RGB'))[:,:,::-1]
+DETAIL_ATTRIBUTES = np.asarray(Image.open(ASSETS/'detail-attributes.png').convert('RGB'))[:,:,::-1]
 
 def active_nav_button(image, box, template):
     # Shape matching alone also finds the button behind a dimmed modal.
@@ -68,6 +71,34 @@ def template_score(image,template):
     denominator=np.sqrt(np.sum(centered**2,axis=(-2,-1))*np.sum(b**2))
     scores=np.sum(centered*b,axis=(-2,-1))/np.maximum(denominator,1)
     return float(scores.max())
+
+def _collectible_switch(image, box, enabled):
+    x,y,_,_=box
+    # Sample both ends inside the track, away from the rounded border and the moving edge.
+    left=image[y+9:y+22,x+8:x+22]
+    right=image[y+9:y+22,x+35:x+49]
+    thumb,track=(right,left) if enabled else (left,right)
+    if (thumb.min(axis=2)>225).mean()<.9:return False
+    b,g,r=track.transpose(2,0,1)
+    color=((b>210)&(g>140)&(g<205)&(r<65)) if enabled else (
+        (track.min(axis=2)>35)&(track.max(axis=2)<120)&(np.ptp(track,axis=2)<20))
+    return bool(color.mean()>=.9)
+
+def _collectible_controls(image, upper_on):
+    if image is None or image.shape[:2]!=(1080,1920):return False
+    upper,lower=COLLECTIBLE_TOGGLE_BOXES
+    return (_collectible_switch(image,upper,upper_on) and _collectible_switch(image,lower,True)
+            and template_score(image[221:237,29:72],COLLECTIBLE_LABEL)>=.9)
+
+def _detail_attributes_visible(image):
+    # Only fixed row icons and labels; the numerical values and selected equipment tab are outside the crop.
+    return template_score(image[438:511,1596:1686],DETAIL_ATTRIBUTES)>=.86
+
+def hidden_collectible_toggles(image):
+    return _collectible_controls(image,False) and not _detail_attributes_visible(image)
+
+def collectible_sidebar_visible(image):
+    return _collectible_controls(image,True) and _detail_attributes_visible(image)
 
 def element(image,box):
     x,y,w,h=map(int,box);rgb=image[y:y+h,x:x+w,::-1].astype(np.int16)

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { CHANGELOG, CURRENT_VERSION, displayDate } from '../data/changelog.js'
 import { markVersionSeen } from '../lib/updateNotice.js'
+import ChangelogItems from './ChangelogItems.jsx'
 import { t } from '../lib/i18n.js'
 import '../styles/changelog.css'
 
@@ -40,11 +41,7 @@ export default function UpdateNoticeDialog({ onClose }) {
 
         <div className="dlg-body dlg-body-scroll">
           <p className="cl-range">v{CURRENT_VERSION}</p>
-          <ol className="cl-items">
-            {entry.items.map((item, index) => (
-              <li key={typeof item==='string'?item:item.title}>{index + 1}、{typeof item==='string'?item:<><strong>{item.title}</strong>{item.details?.length>0&&<ul className="cl-details">{item.details.map(detail=><li key={detail}>{detail}</li>)}</ul>}</>}</li>
-            ))}
-          </ol>
+          <ChangelogItems entry={entry} />
           <div className="cl-date">{displayDate(entry.date)}</div>
 
           <label className="cl-mute">

@@ -16,6 +16,8 @@ class Job:
     def wait(self):return self
 class FakeService:
     capture_backend=SimpleNamespace(inspect=lambda:{'size':engine.LAYOUT_SIZE})
+    card_destination='detail'
+    after_wallpaper='detail'
     def __init__(self,_):self.page='hall';self.query='';self.expanded=False;self.controller=self;self.last=None;self.connection=None;self.selected='';self.slot=0;self.inputs=[]
     def initialize(self):pass
     def windows(self):return {'windows':[{'hwnd':'123','pid':123,'elevated':True}]}
@@ -32,7 +34,10 @@ class FakeService:
             if y>940:self.page='hall'
             elif y<270:self.expanded=True
             elif x>1080 and x<1110 and y<350:self.query=''
-            elif y>370:self.page='detail';self.selected=self.query
+            elif y>370:self.page=self.card_destination;self.selected=self.query
+        elif self.page=='detail_wallpaper_hidden':
+            assert any(left<=x<left+w and top<=y<top+h for left,top,w,h in engine.COLLECTIBLE_TOGGLE_BOXES)
+            self.page=self.after_wallpaper
         elif self.page=='detail':
             if x<140 and y>990:self.page='list'
             elif x>1600:self.slot=1 if x>1740 and y<830 else 2 if x<1740 else 3;self.page='non_overload' if self.slot==1 else 'overload'
@@ -96,6 +101,7 @@ try:
     assert len(returns)==1 and returns[0]['record'] is False and returns[0]['initial']==.15 and returns[0]['interval']==.2
     actions=[json.loads(line) for line in (folder/'actions.jsonl').read_text('utf-8').splitlines()]
     assert all('click' in event for event in actions if event['action']!='输入角色名')
+    assert not any(event.get('click',{}).get('targetBox') in engine.COLLECTIBLE_TOGGLE_BOXES for event in actions)
     assert not any('升级' in str(value) or '交换' in str(value) for value in test.s.inputs)
     # Same full program with a completed checkpoint must not reread that role.
     second=TestCollector({**request,'completedCodes':[roster['桃乐丝']['nameCode']]},folder)
@@ -127,5 +133,33 @@ try:
         except engine.HomeReturnUnconfirmed:pass
         else:raise AssertionError('Expected to stop without a confirmed lobby')
     assert len(test.s.inputs)==1
-    print(json.dumps({'passed':True,'fullAutomaticFlow':True,'skipAmbiguous':True,'nonT10':True,'unequipped':True,'returnedHall':True,'resumeNoDuplicate':True,'noDuplicateListVerification':True,'shortBoundedReturnPoll':True,'clickCoordinatesLogged':True,'gameInputs':0,'evidence':str(folder)}))
+    char=roster['桃乐丝']
+    one_card={'box':[80,389,128,218],'element':char['element'],'burst':char['use_burst_skill']}
+    for name,box,next_page in [('show-sidebar',engine.COLLECTIBLE_TOGGLE_BOXES[0],'detail'),
+                               ('exit-wallpaper',engine.COLLECTIBLE_TOGGLE_BOXES[1],'detail'),
+                               ('no-response',engine.COLLECTIBLE_TOGGLE_BOXES[0],'detail_wallpaper_hidden')]:
+        run_dir=folder/name
+        run_dir.mkdir()
+        run=TestCollector({**request,'characters':[char]},run_dir)
+        clock=[0.]
+        def advance(seconds):
+            clock[0]+=seconds
+        run.delay=advance
+        with patch.object(engine,'candidates',return_value=[one_card]), \
+             patch.object(FakeService,'card_destination','detail_wallpaper_hidden'), \
+             patch.object(FakeService,'after_wallpaper',next_page), \
+             patch.object(engine.time,'monotonic',lambda:clock[0]), \
+             patch.object(engine.random.SystemRandom,'choice',lambda self,options:box if options==engine.COLLECTIBLE_TOGGLE_BOXES else False):
+            run.run()
+        history=[json.loads(line) for line in (run_dir/'actions.jsonl').read_text('utf-8').splitlines()]
+        toggles=[event for event in history if event.get('click',{}).get('targetBox') in engine.COLLECTIBLE_TOGGLE_BOXES]
+        assert len(toggles)==1 and toggles[0]['click']['targetBox']==box,(name,history)
+        assert sum(event['action']=='打开目标角色' for event in history)==1
+        slots=[evt['slot'] for kind,evt in run.events if kind=='equipment']
+        if next_page=='detail':
+            assert run.state['phase']=='completed' and slots==[slot for slot,_,_ in engine.SLOTS],(name,run.state,slots)
+        else:
+            assert run.state['phase']=='failed' and not slots and history[-1]==toggles[0],(name,run.state,history)
+            assert '未确认装备栏' in run.state['error']
+    print(json.dumps({'passed':True,'fullAutomaticFlow':True,'skipAmbiguous':True,'nonT10':True,'unequipped':True,'returnedHall':True,'resumeNoDuplicate':True,'noDuplicateListVerification':True,'shortBoundedReturnPoll':True,'clickCoordinatesLogged':True,'wallpaperBothExits':True,'wallpaperTimeoutStopsAfterOneClick':True,'gameInputs':0,'evidence':str(folder)}))
 finally:engine.time.sleep=saved_sleep;engine.candidates=saved_candidates

@@ -2,7 +2,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { assembleHtml } from './vendor/scripts/assemble.mjs'
-import { listenForUiClicks } from '../ui-click.js'
+import { effectMotionReduced, listenForClickEffect, listenForUiClicks } from '../ui-click.js'
+import { installToolMotionPreference } from '../tool-motion.js'
 
 const root = import.meta.dirname, vendor = path.join(root, 'vendor')
 const out = path.resolve(root, '../../public/tools/sr-collection')
@@ -27,11 +28,20 @@ const themeInit = `const t = new URLSearchParams(location.search).get('theme'); 
 html = html.replace('</script>', `</script><script>${themeInit}</script>`)
 const bridge = await fs.readFile(path.join(root, 'desktop-bridge.js'), 'utf8')
 const desktopCopy = await fs.readFile(path.join(root, 'desktop-copy.js'), 'utf8')
+const clickStyle = await fs.readFile(path.join(root, '../ui-click.css'), 'utf8')
+const motionStyle = await fs.readFile(path.join(root, '../tool-motion.css'), 'utf8')
+html = html.replace('</head>', '<style>' + clickStyle + motionStyle + '</style></head>')
 html = html.replace('</body>', `<script>${desktopCopy}</script><script>${bridge}
+;${effectMotionReduced.toString()}
+;(${installToolMotionPreference.toString()})()
 ;(${listenForUiClicks.toString()})(document, cue => send({ type:'nikke-tools:ui-sound', cue }))
+;(${listenForClickEffect.toString()})(document)
 </script></body>`)
 if (!html.includes('window.__SR_CALCULATOR__') || !html.includes('nikke-tools:ready')) throw Error('Incomplete desktop build')
 await fs.mkdir(out, {recursive:true})
+for (const asset of ['ui-click-base.webp', 'ui-click-glow.webp', 'ui-click-spark.webp']) {
+  await fs.copyFile(path.join(root, '..', asset), path.join(out, asset))
+}
 await fs.writeFile(path.join(out, 'index.html'), html)
 await fs.copyFile(path.join(vendor, 'LICENSE'), path.join(out, 'LICENSE.txt'))
 await fs.copyFile(path.join(root, 'UPSTREAM.md'), path.join(out, 'SOURCE-NOTICE.txt'))

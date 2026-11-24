@@ -18,8 +18,11 @@ from collection_roster import load_collection_roster
 from collection_vision import candidates,choose_candidate,normalized_name,safe_point,element,name_fragment_matches,popup_outside_box,search_query_matches
 from collection_vision import popup_surface_ready,popup_signature,popup_unchanged,active_nav_button,HOME_BUTTON,BACK_BUTTON
 from collection_vision import LAYOUT_SIZE,navigation_frame
+from collection_vision import COLLECTIBLE_TOGGLE_BOXES,collectible_sidebar_visible,hidden_collectible_toggles
 
 PROJECT=ROOT.parents[1]
+DETAIL_PAGES = ('detail', 'detail_wallpaper_hidden')
+EQUIPMENT_TAB_ROI = [1535,700,70,80]
 SHOP_NAMES={'paid_shop':'付费商店','department_store':'百货商店'}
 HOME_PAGE_NAMES={**SHOP_NAMES,'outpost':'前哨基地','ark':'方舟'}
 OUTPOST_BUTTONS=(
@@ -41,6 +44,7 @@ class PageDeviation(Exception):pass
 class SkipRole(Exception):pass
 class PopupDismissalUnconfirmed(Exception):pass
 class HomeReturnUnconfirmed(Exception):pass
+class WallpaperRevealUnconfirmed(Exception):pass
 class SearchInputUnconfirmed(Exception):pass
 
 def atomic(file,data):
@@ -93,6 +97,14 @@ class Pages:
                 hits+=1
                 if hits==2:return True
         return False
+    def detail_page(self):
+        if not self.ocr([0,0,160,65],'详细信息')['hit']:
+            return None
+        if self.ocr([20,275,140,55],'妮姬信息')['hit'] or collectible_sidebar_visible(self.image):
+            return 'detail'
+        if hidden_collectible_toggles(self.image):
+            return 'detail_wallpaper_hidden'
+        return None
     def page(self):
         if 'page' in self.cache:return self.cache['page']
         close=self.match('close',[680,0,560,280])
@@ -100,7 +112,8 @@ class Pages:
             if self.match('overload',[840,0,260,240])['hit']:page='overload'
             elif self.match('tier9',[840,0,260,240])['hit'] or self.ocr([840,0,260,230],r'TIER\s*[1-9]\b')['hit']:page='non_overload'
             else:page='equipment_unknown'
-        elif self.ocr([0,0,160,65],'详细信息')['hit'] and self.ocr([20,275,140,55],'妮姬信息')['hit']:page='detail'
+        elif detail := self.detail_page():
+            page=detail
         elif self.ocr([0,0,160,65],'^妮姬$')['hit'] and self.ocr([1070,190,185,65],'战斗力')['hit']:page='list'
         elif self.matches_two(OUTPOST_BUTTONS):page='outpost'
         else:
@@ -304,8 +317,8 @@ class Collector:
                     if target=='hall':return
                     continue
                 if page_name:raise PageDeviation(f'已识别{page_name}，未找到可用的小房子，请关闭弹窗或手动返回大厅')
-            if page=='detail':
-                self.recognized_click('返回角色列表',self.pages.ocr([0,990,140,65],'返回'),{'detail'},fresh=False)
+            if page in DETAIL_PAGES:
+                self.recognized_click('返回角色列表',self.pages.ocr([0,990,140,65],'返回'),{page},fresh=False)
                 self.wait(lambda:self.pages.is_page('list'),'确认返回列表',initial=.15,interval=.2,record=False)
                 if target=='list':return
                 continue
@@ -382,10 +395,20 @@ class Collector:
         except RuntimeError as error:raise SkipRole(str(error)) from error
         self.emit('candidate',{'nameCode':character['nameCode'],'candidates':items,'chosen':chosen,'reason':reason})
         x,y,_,_=chosen['box'];self.click('打开目标角色',[x+24,y+42,79,126],{'list'},fresh=False)
-        self.wait(lambda:self.pages.page()=='detail','确认角色详情',initial=.4,confirmations=1,interval=.2)
+        self.wait(lambda:self.pages.page() in DETAIL_PAGES,'确认角色详情',initial=.4,confirmations=1,interval=.2)
     def read_character(self,character):
+        if self.pages.page()=='detail_wallpaper_hidden':
+            box=random.SystemRandom().choice(COLLECTIBLE_TOGGLE_BOXES)
+            label='显示珍藏品壁纸侧栏' if box==COLLECTIBLE_TOGGLE_BOXES[0] else '关闭珍藏品壁纸'
+            self.click(label,box,{'detail_wallpaper_hidden'})
+            try:
+                self.wait(lambda:self.pages.page()=='detail' and (
+                    self.pages.equipment_tab() or self.pages.ocr(EQUIPMENT_TAB_ROI,'装备')['hit']
+                ),'确认珍藏品角色装备栏',initial=.2,interval=.2,record=False)
+            except PageDeviation as error:
+                raise WallpaperRevealUnconfirmed('已切换珍藏品开关，但未确认装备栏显示，采集已停止') from error
         if not self.pages.equipment_tab():
-            self.recognized_click('切换装备标签',self.pages.ocr([1535,700,70,80],'装备'),{'detail'})
+            self.recognized_click('切换装备标签',self.pages.ocr(EQUIPMENT_TAB_ROI,'装备'),{'detail'})
             self.wait(lambda:self.pages.page()=='detail' and self.pages.equipment_tab(),'确认装备标签',initial=.15,confirmations=1,interval=.15)
         for index,(slot,label,box) in enumerate(SLOTS):
             self.progress('读取'+label+'部装备',slot=slot)

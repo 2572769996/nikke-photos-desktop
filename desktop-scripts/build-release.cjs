@@ -17,7 +17,9 @@ function sanitize(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){
 async function archiveSource(){
  const source=path.join(stage,'source');fs.mkdirSync(source,{recursive:true});
  for(const name of ['src','electron','automation','scripts','desktop-scripts','tools','public','build'])copy(path.join(root,name),path.join(source,name),file=>{
-  const rel=path.relative(root,file).replaceAll('\\','/');return cleanFilter(file)&&!/(^|\/)node_modules(\/|$)/.test(rel)&&!/^public\/(tools|about)(\/|$)/.test(rel)&&!/^tools\/equipment-reroll\/public\/source(\/|$)/.test(rel);
+  const rel=path.relative(root,file).replaceAll('\\','/');
+  if(rel.startsWith('tools/damage-simulator/python/') && rel!=='tools/damage-simulator/python/LICENSE.txt')return false;
+  return cleanFilter(file)&&!/(^|\/)node_modules(\/|$)/.test(rel)&&!/^public\/(tools|about)(\/|$)/.test(rel)&&!/^tools\/equipment-reroll\/public\/source(\/|$)/.test(rel);
  });
  for(const name of ['package.json','package-lock.json','vite.config.js','index.html','LICENSE','LICENSING.md','README.md'])copy(path.join(root,name),path.join(source,name));
  fs.writeFileSync(path.join(source,'BUILDING.txt'),`NIKKE Photos ${tag} corresponding application source\nNode 24 / npm, Python 3.12 x64.\nInstall lockfile dependencies using npm ci. Run npm run build for the UI.\nAutomation dependencies are pinned in automation/maanikke/requirements.txt.\nThe release builder accepts the existing fixed development Python environment.\nGame artwork and other third-party assets retain their separate rights.\n`);

@@ -1,0 +1,109 @@
+.recruit-result-body {
+  height: 100%; position: relative; overflow: hidden; isolation: isolate; container-type: size;
+  background: linear-gradient(#eef2f6 0% 23%, #eaeef2 23% 55%, #e8eaed 55% 86%, #e4e5e8 86%);
+}
+.recruit-result-body::before, .recruit-result-body::after {
+  content: ''; position: absolute; z-index: -1; pointer-events: none; background-size: contain; background-repeat: no-repeat;
+}
+.recruit-result-body::before {
+  width: 55cqh; height: 56cqh; right: -28cqh; top: -12cqh; opacity: .76;
+  background-image: url('/recruitment/result/background-mark.webp');
+}
+.recruit-result-body::after {
+  width: 70cqh; height: 51cqh; right: -13cqh; bottom: -12cqh; opacity: .15;
+  background-image: url('/recruitment/result/background-text.webp');
+}
+.recruit-result-title { position: absolute; left: 2.4cqh; top: 2.1cqh; width: min(16cqh,23cqw); }
+.recruit-result-title img { display: block; width: 100%; }
+.recruit-result-title img + img { margin-top: 5%; }
+.recruit-result-title h2 { margin: 6px 0; color: #414851; font-size: clamp(13px,2.4cqh,22px); }
+.recruit-card-grid {
+  --card-width: min(10.45cqh,17.3cqw);
+  position: absolute; left: 50%; top: 50.8%; transform: translate(-50%,-50%);
+  display: grid; grid-template-columns: repeat(5,var(--card-width)); gap: 4.1cqh min(1.1cqh,1.1cqw);
+  padding: 0; margin: 0; list-style: none;
+}
+.recruit-card-grid.single-card { grid-template-columns: var(--card-width); }
+.recruit-card {
+  --grade: #5794da; position: relative; aspect-ratio: 196/540; min-width: 0;
+  top: calc((2 - var(--column)) * 1.35cqh);
+}
+.single-card .recruit-card { top: 0; }
+.recruit-card.grade-SR { --grade: #c64ade; }
+.recruit-card.grade-SSR { --grade: #ffbe3a; }
+.recruit-card.grade-SR::before, .recruit-card.grade-SSR::before {
+  content: ''; position: absolute; inset: -38% 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(to right,transparent 44%, #ffffff95 46% 47%,transparent 50%),
+    linear-gradient(transparent, var(--grade) 24% 76%,transparent); opacity: .8;
+}
+.recruit-card.grade-SSR::before {
+  inset-block: -65%; background:
+    radial-gradient(ellipse at 22% 25%,#fff9d4 0 1%,transparent 4%),
+    radial-gradient(ellipse at 75% 77%,#fff7be 0 1%,transparent 3%),
+    linear-gradient(90deg,transparent 40%,#fff8c8 47%,transparent 51%),
+    linear-gradient(transparent,#ffe778 22%,var(--grade) 40% 60%,#ffe778 78%,transparent);
+}
+:root:not([data-recruit-effect="false"]) .recruit-card.grade-SSR::before { animation: recruit-gold-light 2.1s ease-in-out infinite alternate; }
+@keyframes recruit-gold-light { from { opacity: .69; } to { opacity: .98; } }
+.recruit-card-face {
+  position: absolute; inset: 0; overflow: hidden; border: max(1px,.26cqh) solid #fff;
+  background: #f0f2f4; box-shadow: 0 0 .7cqh #32394036;
+}
+.recruit-card-face::after {
+  content: ''; position: absolute; inset: 70% 0 0;
+  background: url('/recruitment/result/dots.webp') bottom right / 80% 100% no-repeat,
+    linear-gradient(transparent,var(--grade) 88%,#fff 96%,var(--grade)); pointer-events: none;
+}
+.recruit-card-mark { position: absolute; top: 0; right: -1%; width: 82%; }
+.recruit-portrait { position: absolute; width: 111%; height: 80%; left: -5.5%; top: 15%; object-fit: fill; }
+.recruit-grade { position: absolute; z-index: 1; bottom: 5%; left: 2%; height: 17%; width: auto; }
+.recruit-card-new { position: absolute; right: -4%; top: -6%; width: 49%; }
+.recruit-card-reward {
+  position: absolute; right: -8%; bottom: -2%; width: 52%; aspect-ratio: 242/210;
+  display: grid; place-items: center; background: url('/recruitment/result/piece-frame.webp') center/contain no-repeat;
+}
+.recruit-card-reward img { width: 70%; height: 74%; object-fit: contain; clip-path: polygon(22% 0,78% 0,100% 50%,78% 100%,22% 100%,0 50%); }
+.recruit-card-reward b {
+  position: absolute; right: -1%; bottom: -3%; color: white; background: #28282cd9; padding-inline: .12em;
+  font: 700 clamp(8px,min(1.55cqh,2.65cqw),19px)/1 'Arial Narrow',sans-serif;
+}
+.recruit-result-logo {
+  position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; padding: 9%; box-sizing: border-box;
+  background: #262930; object-fit: contain; animation: recruit-slot-logo var(--slot-duration) var(--slot-start) linear both;
+}
+.recruit-card-name {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.is-animated .recruit-card { animation: recruit-slot-in var(--slot-duration) var(--slot-start) ease-out both; }
+@keyframes recruit-slot-in {
+  from { transform: perspective(50cqh) rotateY(-86deg); opacity: 0; }
+  35% { opacity: 1; } to { transform: perspective(50cqh) rotateY(0); opacity: 1; }
+}
+@keyframes recruit-slot-logo { 0%,35% { opacity: 1; } 65%,100% { opacity: 0; } }
+.recruit-result-actions {
+  position: absolute; left: 50%; bottom: 5%; transform: translateX(-50%); display: flex; gap: 2.6cqh;
+}
+.recruit-summary-skip {
+  position: absolute; inset: 0; display: grid; align-items: end; justify-items: center;
+  width: 100%; padding: 0 0 5cqh; border: 0; background: transparent; cursor: pointer;
+}
+.recruit-result-actions button, .recruit-summary-skip span {
+  display: block; width: min(21.2cqh,38cqw); height: clamp(29px,5.3cqh,65px); padding: 0; border: 0;
+  color: white; font: 700 clamp(13px,2.35cqh,27px)/1 sans-serif;
+  background: transparent url('/recruitment/result/button-black.webp') center/100% 100% no-repeat;
+  filter: drop-shadow(0 2px 2px #343a403d);
+}
+.recruit-summary-skip span { display: grid; place-items: center; }
+.recruit-result-actions .recruit-redraw { background-image: url('/recruitment/result/button-blue.webp'); }
+.recruit-redraw-group { position: relative; }
+.recruit-redraw-group small, .recruit-mileage-earned {
+  background: #393a3d; color: white; font-size: clamp(10px,1.65cqh,16px);
+  line-height: 1.4; padding: 0 .7em; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.recruit-redraw-group small { position: absolute; top: 105%; left: 50%; transform: translateX(-50%); }
+.recruit-mileage-earned {
+  position: absolute; right: .4%; bottom: 12.5%; display: flex; gap: .75em; align-items: center;
+  justify-content: center; min-width: 9.5cqh; height: 3.9cqh; border-radius: 2px;
+}
+.recruit-mileage-earned img { height: 72%; width: auto; }
+.recruit-mileage-earned b { color: #54d0ff; }

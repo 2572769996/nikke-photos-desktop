@@ -1,6 +1,7 @@
 import { useCnRosterRevision } from '../lib/useCnRosterRevision.js'
 import { useEffect, useMemo, useState } from 'react'
 import CharacterGrid from '../components/CharacterGrid.jsx'
+import CharacterSearchBox from '../components/CharacterSearchBox.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import { CHARACTERS, applyFilters, countActiveFilters } from '../lib/roster.js'
 import { ZOOM_PRESETS, loadGridZoom, saveGridZoom } from '../lib/gridZoom.js'
@@ -90,23 +91,7 @@ export default function CharacterListPage() {
       </div>
 
       <div className="toolbar">
-        <label className="search">
-          <span className="icon">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M10.6 10.6L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
-          </span>
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('搜索：中文名 / 英文名 / 资源号 / 拼音首字母')}
-            spellCheck={false}
-          />
-          {search ? (
-            <button type="button" className="search-clear" onClick={() => setSearch('')} aria-label={t('清空搜索')}>×</button>
-          ) : null}
-        </label>
+        <CharacterSearchBox value={search} onChange={setSearch} />
 
         <FilterBar
           selected={selected}

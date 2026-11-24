@@ -2,6 +2,7 @@ const { app, BrowserWindow, protocol, net, ipcMain, Menu, dialog, session } = re
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { Readable } = require('node:stream');
 const project = path.resolve(__dirname, '..');
 // Session-only diagnostic launch. Never persist the override or accept it from renderer RPC.
 const printWindowOnly = !app.isPackaged && process.argv.includes('--printwindow-only');
@@ -27,7 +28,7 @@ for (const name of ['GPUPersistentCache','Shared Dictionary','Cache','Code Cache
 }
 app.commandLine.appendSwitch('disk-cache-dir', path.join(cacheRoot,'chromium','Cache'));
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
-protocol.registerSchemesAsPrivileged([{scheme:'nikke', privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}}]);
+protocol.registerSchemesAsPrivileged([{scheme:'nikke', privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true,stream:true}}]);
 const captureCheck = !app.isPackaged && process.argv.includes('--capture-check');
 const sourcePickerCheck = !app.isPackaged && process.argv.includes('--source-picker-check');
 const customNikkeCheck = !app.isPackaged && process.argv.includes('--custom-nikke-check');
@@ -41,6 +42,24 @@ const smoke = !app.isPackaged && (srCollectionCheck || collectionUiCheck || maan
 let mainWindow;
 if(smoke) setTimeout(()=>app.exit(1),process.argv.includes('--collection-live-check')?900000:90000).unref();
 const log = message => fs.appendFileSync(path.join(cacheRoot,'logs','desktop.log'), new Date().toISOString()+' '+message+'\n');
+// Chromium seeks and loops local media through byte ranges. file: fetch ignores Range.
+function serveMedia(file, request, contentType) {
+  const size = fs.statSync(file).size;
+  const headers = {'Content-Type':contentType, 'Accept-Ranges':'bytes'};
+  const range = request.headers.get('range');
+  let start = 0, end = size - 1;
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!match || (!match[1] && !match[2])) return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+size}});
+    start = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2]));
+    end = match[1] && match[2] ? Math.min(Number(match[2]), end) : end;
+    if (start > end) return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+size}});
+    headers['Content-Range'] = 'bytes '+start+'-'+end+'/'+size;
+  }
+  headers['Content-Length'] = String(end - start + 1);
+  const body = request.method === 'HEAD' ? null : Readable.toWeb(fs.createReadStream(file,{start,end}));
+  return new Response(body,{status:range ? 206 : 200,headers});
+}
 if (!app.requestSingleInstanceLock()) { app.quit(); } else {
 app.on('second-instance', () => { if (mainWindow) { if(mainWindow.isMinimized()) mainWindow.restore(); mainWindow.focus(); } });
 app.whenReady().then(async () => {
@@ -52,6 +71,8 @@ app.whenReady().then(async () => {
     const base = url.host === 'app' ? path.join(project,'dist') : path.join(project,'dist','tools');
     const file = path.resolve(base,'.'+(filename === '/' ? '/index.html' : filename));
     if(!file.startsWith(base+path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return new Response('Not found',{status:404});
+    if (file.endsWith('.mp4')) return serveMedia(file, request, 'video/mp4');
+    if (file.endsWith('.mp3')) return serveMedia(file, request, 'audio/mpeg');
     return net.fetch(pathToFileURL(file).toString());
   });
   session.defaultSession.setPermissionRequestHandler((_web, permission, callback) => callback(permission === 'display-capture'));

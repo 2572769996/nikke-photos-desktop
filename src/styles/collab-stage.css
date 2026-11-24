@@ -1,0 +1,104 @@
+.collab-stage {
+  overflow: hidden;
+  color: #f7f9fa;
+  border: 1px solid #515d67;
+  border-radius: 8px 8px 0 0;
+  background: #182028;
+}
+.cs-stage-head, .cs-stage-tools, .cs-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cs-stage-head {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 11px clamp(12px, 2vw, 24px);
+  background: linear-gradient(110deg, #15212d, #243540 65%, #1c2832);
+  border-bottom: 1px solid #667782;
+}
+.cs-stage-head h2 { margin: 0; font-size: 22px; line-height: 1.25; }
+.cs-stage-head span { color: #c7d9df; font-size: 13px; }
+.cs-stage-tools { flex-wrap: wrap; }
+.cs-stage-tools button, .cs-stage-tools select {
+  min-height: 34px;
+  max-width: 100%;
+  padding: 5px 10px;
+  color: #eff8ff;
+  background: #27333f;
+  border: 1px solid #8496a3;
+  border-radius: 4px;
+  font: inherit;
+}
+.cs-stage-tools select { min-width: 135px; }
+.cs-view {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 2.12;
+  background: #15202a;
+  user-select: none;
+}
+.cs-backdrop {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  pointer-events: none;
+}
+.cs-view::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, #7594a518, transparent 35%, #09111a40);
+}
+.cs-figure {
+  position: absolute;
+  aspect-ratio: .34;
+  transform: translate(-50%, -50%);
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: white;
+}
+.cs-figure img {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 100%;
+  width: auto;
+  max-width: none;
+  pointer-events: none;
+}
+.cs-figure:focus-visible { outline: 2px solid #ffe2a0; outline-offset: 2px; }
+.cs-actions {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 26px;
+  padding: 9px 12px;
+  background: linear-gradient(110deg, #1d2934, #293846 55%, #1b2732);
+  border-top: 1px solid #596873;
+}
+.cs-actions .recruit-payment { position: static; flex: none; }
+.cs-actions .recruit-stage-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  width: auto;
+  max-width: 100%;
+  padding: 0;
+}
+.cs-actions .recruit-stage-controls::before { content: none; }
+.cs-actions .recruit-draw-actions { width: min(390px, 70vw); }
+@media (max-width: 740px) {
+  .cs-stage-head { gap: 7px; }
+  .cs-stage-head h2 { font-size: 19px; }
+  .cs-actions { gap: 6px; }
+  .cs-actions .recruit-draw-actions { width: min(390px, 85vw); }
+}

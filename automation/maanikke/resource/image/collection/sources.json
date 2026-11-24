@@ -1,5 +1,27 @@
 [
   {
+    "file": "collectible-label.png",
+    "source": "用户提供的国服珍藏品背景详情截图（2026-11-25 图1），仅珍藏品文字",
+    "crop": [
+      32,
+      224,
+      69,
+      234
+    ],
+    "sourceSha256": "aba4bffa1cea2f1d69b705778d4889eaa3591a0dd1cdd11c81aa09c866e5996d"
+  },
+  {
+    "file": "detail-attributes.png",
+    "source": "用户提供的国服珍藏品背景详情截图（2026-11-25 图3），仅固定属性行图标与标签",
+    "crop": [
+      1599,
+      441,
+      1683,
+      508
+    ],
+    "sourceSha256": "6bc114d93d724adf54efd94a6061fbd6c24c609c7e490df3c912edd21a55cbcd"
+  },
+  {
     "file": "ark-lost-sector.png",
     "source": "用户提供的国服方舟页面截图（2026-11-23 图1）",
     "crop": [

@@ -4,11 +4,16 @@ import { DEFAULT_NIKKE_TOOL, NIKKE_TOOLS } from '../lib/nikkeTools.js'
 import '../styles/nikkeTools.css'
 import ResourceIncomePage from './ResourceIncomePage.jsx'
 import { playUiSound } from '../lib/uiSound.js'
+import { effectEnabled, subscribeMotionPreference } from '../lib/motionPreference.js'
 import OfficialCdkPage from './OfficialCdkPage.jsx'
 const StoryReaderPage = lazy(() => import('./StoryReaderPage.jsx'))
 const DamageSimulatorPage = lazy(() => import('./DamageSimulatorPage.jsx'))
 const SynchroPlannerPage = lazy(() => import('./SynchroPlannerPage.jsx'))
 import RerollEquipmentImportDialog from '../components/RerollEquipmentImportDialog.jsx'
+
+function toolMotionPreferences() {
+  return { reduceMotion: !effectEnabled('interface'), clickEffect: effectEnabled('click'), washEffect: effectEnabled('wash') }
+}
 
 function ToolFrame({ tool, active }) {
   const frame = useRef(null)
@@ -19,12 +24,13 @@ function ToolFrame({ tool, active }) {
   const [retry, setRetry] = useState(0)
   const [loaded, setLoaded] = useState(false)
   const [importRequest, setImportRequest] = useState(null)
+  const [initialMotion] = useState(() => new URLSearchParams(toolMotionPreferences()).toString())
   const locale = currentLocale()
   // Separate Electron origin: calculators cannot read the host's character localStorage.
   const entry = location.protocol === 'nikke:'
     ? `nikke://${tool.origin}/${tool.entry.replace('tools/', '')}`
     : `${import.meta.env.BASE_URL}${tool.entry}`
-  const src = `${entry}?theme=${theme}&locale=${locale}`
+  const src = `${entry}?theme=${theme}&locale=${locale}&${initialMotion}`
 
   useEffect(() => {
     if (active && tool.id === 'equipment-simulator') return () => playUiSound('endReveal')
@@ -39,9 +45,13 @@ function ToolFrame({ tool, active }) {
   useEffect(() => {
     setLoaded(false)
     setFailed(false)
+    const expectedOrigin = new URL(src, location.href).origin
+    const syncMotion = () => frame.current?.contentWindow?.postMessage({
+      type: 'nikke-tools:motion', ...toolMotionPreferences(),
+    }, expectedOrigin)
+    const unsubscribeMotion = subscribeMotionPreference(syncMotion)
     const receive = (event) => {
       if (event.source !== frame.current?.contentWindow) return
-      const expectedOrigin = new URL(src, location.href).origin
       if (event.origin !== expectedOrigin) return
       if (activeRef.current && event.data?.type === 'nikke-tools:ui-sound') playUiSound(event.data.cue)
       if (activeRef.current && ['nikke-tools:file-drop', 'nikke-tools:file-drag'].includes(event.data?.type)) {
@@ -55,12 +65,12 @@ function ToolFrame({ tool, active }) {
         setImportRequest({ requestId: event.data.requestId, target: event.source, origin: event.origin, purpose, resultType })
       }
       if (event.data?.type === (tool.id==='equipment-simulator' ? 'nikke-simulator:cancel-import' : 'nikke-reroll:cancel-import'))setImportRequest(current => current?.requestId===event.data.requestId ? null : current)
-      if (event.data?.type === 'nikke-tools:ready') { window.clearTimeout(timer); setLoaded(true); setFailed(false) }
+      if (event.data?.type === 'nikke-tools:ready') { syncMotion(); window.clearTimeout(timer); setLoaded(true); setFailed(false) }
       if (event.data?.type === 'nikke-tools:error') setFailed(true)
     }
     window.addEventListener('message', receive)
     const timer = window.setTimeout(() => setFailed(true), 20000)
-    return () => { window.removeEventListener('message', receive); window.clearTimeout(timer) }
+    return () => { unsubscribeMotion(); window.removeEventListener('message', receive); window.clearTimeout(timer) }
   }, [src, retry])
   useEffect(() => { setImportRequest(current => {
     if(current)current.target.postMessage({type:current.resultType,requestId:current.requestId,canceled:true},current.origin)

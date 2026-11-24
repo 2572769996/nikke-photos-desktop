@@ -39,7 +39,9 @@ for(const resource of ['public/ui-assets/nikke/equipment/overload','public/ui-as
   fs.cpSync(path.join(root,resource),path.join(dest,resource),{recursive:true})
 }
 fs.copyFileSync(path.join(root,'tools/file-drop-relay.js'),path.join(dest,'tools/file-drop-relay.js'))
-fs.copyFileSync(path.join(root,'tools/ui-click.js'),path.join(dest,'tools/ui-click.js'))
+for (const name of ['ui-click.js','ui-click.css','ui-click-base.webp','ui-click-glow.webp','ui-click-spark.webp','tool-motion.js','tool-motion.css']) {
+  fs.copyFileSync(path.join(root,'tools',name),path.join(dest,'tools',name))
+}
 for(const name of ['src','vendor','tests','strategy-tests','simulator-tests','simulator','keys','index.html','vite.config.mjs','LICENSE']) {
   fs.cpSync(path.join(tool,name),path.join(dest,'tools/equipment-reroll',name),{recursive:true})
 }

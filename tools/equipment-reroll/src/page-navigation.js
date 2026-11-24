@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+import { prefersReducedMotion } from '../../ui-click.js'
 // Presentation only: navigate inside the expectation document, never the host.
 export function installPageNavigation(panel) {
   const nav=document.createElement('nav')
@@ -11,7 +12,7 @@ export function installPageNavigation(panel) {
   const headings=links.map(button=>document.getElementById(button.dataset.section))
   headings.forEach(heading=>{heading.tabIndex=-1})
   let queued=false,selected=0
-  const behavior=()=>matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'
+  const behavior=()=>prefersReducedMotion()?'instant':'smooth'
   function update() {
     queued=false
     const root=document.scrollingElement

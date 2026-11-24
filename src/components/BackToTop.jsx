@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n.js'
+import { prefersReducedMotion } from '../../tools/ui-click.js'
 
 /** 回到顶部：滚动一定距离后出现，点击平滑回顶（全局挂在 App 下） */
 export default function BackToTop() {
@@ -16,7 +17,7 @@ export default function BackToTop() {
     <button
       type="button"
       className={visible ? 'back-to-top show' : 'back-to-top'}
-      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      onClick={() => window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'instant' : 'smooth' })}
       title={t('回到顶部')}
       aria-label={t('回到顶部')}
       aria-hidden={!visible}

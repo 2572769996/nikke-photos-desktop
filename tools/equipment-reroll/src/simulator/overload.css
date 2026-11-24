@@ -72,7 +72,7 @@ button.ol-lock:disabled { opacity: .45; }
 .new-block { color: #00bafb; }
 .ol-result .awaiting-reveal { background: #232b31; border-bottom-color: #41515b; }
 @media (prefers-reduced-motion: no-preference) {
-  .ol-result .revealed-effect { animation: reveal-affix 185ms ease-out; }
+  :root:not([data-wash-effect="false"]) .ol-result .revealed-effect { animation: reveal-affix 185ms ease-out; }
   @keyframes reveal-affix {
     from { opacity: .4; transform: translateX(-6px); box-shadow: inset 5px 0 #36d9ff, 0 0 9px #00bafb; }
     to { opacity: 1; transform: translateX(0); box-shadow: inset 0 0 transparent; }
