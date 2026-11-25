@@ -1,4 +1,4 @@
-"""Run offline Maa recognition against supplied hidden, normal, shown and unrelated game screenshots."""
+"""Run offline Maa recognition against supplied character details and unrelated game screenshots."""
 import argparse
 import os
 import sys
@@ -26,6 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('hidden', 'normal', 'shown', 'unrelated'):
         parser.add_argument(name, type=Path)
+    parser.add_argument('--occluded', type=Path, help='Normal details with the left information label obscured by artwork.')
     args = parser.parse_args()
     hidden, normal, shown, unrelated = map(read_pixels, (args.hidden, args.normal, args.shown, args.unrelated))
 
@@ -43,8 +44,13 @@ def main():
             pages.reset()
             return pages.page()
 
-        for frame, expected in [(hidden, 'detail_wallpaper_hidden'), (normal, 'detail'), (shown, 'detail')]:
-            assert classify(frame) == expected, expected
+        cases = [(hidden, 'detail_wallpaper_hidden'), (normal, 'detail'), (shown, 'detail')]
+        if args.occluded:
+            occluded = read_pixels(args.occluded)
+            cases.append((occluded, 'detail'))
+        for frame, expected in cases:
+            result = classify(frame)
+            assert result == expected, (expected, result)
             scaled = Image.fromarray(frame).resize((2560, 1440), Image.Resampling.LANCZOS)
             assert classify(np.asarray(scaled)) == expected, '2K ' + expected
 
@@ -57,8 +63,13 @@ def main():
             assert classify(single) != 'detail_wallpaper_hidden', 'Missing switch accepted'
             fake[y:y+height, x:x+width] = hidden[y:y+height, x:x+width]
         assert classify(fake) == original_page, 'Foreign page with two switches accepted as details'
-        print('Three source frames at 1080p and resampled 1440p, both single-switch negatives,',
-              'and two fake switches on', original_page, 'passed. Game inputs: 0.')
+        if args.occluded:
+            for region in [(slice(0, 65), slice(0, 160)), (slice(438, 511), slice(1596, 1686))]:
+                incomplete = occluded.copy()
+                incomplete[region] = 0
+                assert classify(incomplete) != 'detail', 'Accepted a missing title or missing attribute rows'
+            assert classify(occluded // 2) != 'detail', 'Accepted dimmed details behind an overlay'
+        print(len(cases), 'detail frames at 1080p and resampled 1440p; negative cases passed. Game inputs: 0.')
     finally:
         service.close()
 

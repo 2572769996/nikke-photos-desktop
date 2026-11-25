@@ -80,6 +80,7 @@ function register({ipcMain,requireSender,project,cacheRoot,app}){
  ipcMain.handle('maanikke:screenshots',async(event,command,args)=>{
   requireSender(event);
   if(command==='stats')return screenshots.stats();
+  if(command==='refresh')return screenshots.refresh();
   if(command==='read')return screenshots.read(args?.id);
   if(command==='settings')return screenshots.settings(args);
   if(command==='clean')return {...screenshots.clean(),...screenshots.stats()};

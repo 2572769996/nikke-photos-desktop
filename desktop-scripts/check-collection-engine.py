@@ -109,6 +109,87 @@ try:
         c=roster[second.s.query];return [{'box':[80,389,128,218],'element':c['element'],'burst':c['use_burst_skill']},{'box':[229,389,128,218],'element':c['element'],'burst':c['use_burst_skill']}]
     engine.candidates=items2;second.run()
     assert second.state['phase']=='completed';assert not any(kind=='equipment' for kind,_ in second.events)
+    # A previous run can leave an expanded search field with the old name.
+    # The game’s lobby entry need not be available to resume from this list.
+    class InterruptedSearchService(FakeService):
+        def __init__(self,cache):
+            super().__init__(cache)
+            self.page='list';self.expanded=True;self.query='桃乐丝'
+    run_dir=folder/'resume-from-search'
+    run_dir.mkdir()
+    resumed=TestCollector({**request,'completedCodes':[roster['桃乐丝']['nameCode']]},run_dir)
+    resumed.service_factory=InterruptedSearchService
+    with patch.object(engine,'candidates',return_value=[{'box':[80,389,128,218]}]):
+        resumed.run()
+    history=[json.loads(line)['action'] for line in (run_dir/'actions.jsonl').read_text('utf-8').splitlines()]
+    assert history[0]=='清空搜索',history
+    assert resumed.state['phase']=='completed' and resumed.s.page=='hall',resumed.state
+    assert [value for kind,value,*_ in resumed.s.inputs if kind=='text']==['红莲']
+    assert [data['slot'] for kind,data in resumed.events if kind=='equipment']==[slot for slot,_,_ in engine.SLOTS]
+    # Transient blank frames follow submission; a later card must still be read.
+    run_dir=folder/'search-results'
+    run_dir.mkdir()
+    names=['伊莱格：BOOM与惊吓','QUEEN（真）','桃乐丝']
+    run=TestCollector({**request,'characters':[roster[name] for name in names]},run_dir)
+    clock=[0.]
+    polls={}
+    def advance_search(seconds):
+        clock[0]+=seconds
+    def delayed_cards(_,details=True):
+        query=run.s.query
+        polls[query]=polls.get(query,0)+1
+        if query=='桃乐丝' or polls[query]<=2:return []
+        return [{'box':[80,389,128,218]}]
+    run.delay=advance_search
+    with patch.object(engine,'candidates',delayed_cards),patch.object(engine.time,'monotonic',lambda:clock[0]):
+        run.run()
+    completed=[data['nameCode'] for kind,data in run.events if kind=='character']
+    assert completed==[roster[name]['nameCode'] for name in names[:2]],run.events
+    assert [value for kind,value,*_ in run.s.inputs if kind=='text']==['伊莱格：boom与惊吓','queen（真）','桃乐丝']
+    skip_index,= [i for i,(kind,_) in enumerate(run.events) if kind=='skipped']
+    assert '未检测到可确认的角色卡' in run.events[skip_index][1]['reason']
+    evidence={'nameCode':roster['桃乐丝']['nameCode'],'searchTerm':'桃乐丝','clientSize':[1920,1080]}
+    assert run.events[skip_index-1]==('frame',{'phase':'等待搜索结果',**evidence})
+    assert all(run.events[skip_index][1][key]==value for key,value in evidence.items())
+    assert run.state['phase']=='completed' and run.s.page=='hall'
+    # Search can return an owned variant even when it is the only visible card.
+    # Load exactly the requested targets: their unselected variants still matter.
+    from datetime import datetime, timezone
+    targets=['白雪公主','红莲','爱德：特工兔女郎']
+    selected=engine.load_collection_roster(project,[roster[name]['nameCode'] for name in targets],datetime(2026,12,3,tzinfo=timezone.utc))
+    run_dir=folder/'variant-search'
+    run_dir.mkdir()
+    run=TestCollector({**request,'characters':selected},run_dir)
+    wrong={'白雪公主':'白雪公主：纯真年代','红莲':'红莲：暗影'}
+    def owned_card(_,details=True):
+        card=roster[wrong.get(run.s.query,'爱德：特工兔女郎')]
+        return [{'box':[80,389,128,218],'element':card['element'],'burst':card['use_burst_skill']}]
+    with patch.object(engine,'candidates',owned_card):
+        run.run()
+    assert [data['nameCode'] for kind,data in run.events if kind=='character']==[selected[2]['nameCode']],run.events
+    assert [data['nameCode'] for kind,data in run.events if kind=='skipped']==[c['nameCode'] for c in selected[:2]]
+    assert run.s.selected=='爱德：特工兔女郎' and run.state['phase']=='completed'
+    snow={'box':[80,389,128,218],'element':'Iron','burst':'Step3'}
+    for observed in ('白雪','白雪公主：','白雪公主：纯真年代',''):
+        try:engine.choose_candidate([{**snow,'name':observed}],selected[0])
+        except RuntimeError:pass
+        else:raise AssertionError('Shared icons or truncated name mistaken for Snow White: '+observed)
+    assert engine.choose_candidate([{**snow,'name':'白雪公主'}],selected[0])[0]['name']=='白雪公主'
+    assert engine.choose_candidate([{'element':'Electronic','burst':'Step3'}],selected[1])[0]['element']=='Electronic'
+    class CardNamePages(FakePages):
+        texts=staticmethod(engine.Pages.texts)
+        def ocr(self,roi,expected='.+'):
+            if roi==[114,569,94,36]:
+                return {'hit':True,'box':text_box,'detail':{'filtered':[{'text':'白雪公主'}]}}
+            return super().ocr(roi,expected)
+    for case,text_box,should_open in [('complete-name',[120,574,72,23],True),('clipped-prefix',[119,574,89,23],False)]:
+        run_dir=folder/case
+        run_dir.mkdir()
+        run=TestCollector({**request,'characters':selected[:1]},run_dir)
+        run.pages_factory=CardNamePages
+        with patch.object(engine,'candidates',side_effect=lambda *args,**kwargs:[dict(snow)]):
+            run.run()
+        assert run.state['phase']=='completed' and bool(run.s.selected)==should_open,(case,run.events)
     for start in ['paid_shop','department_store','outpost','ark','unknown']:
         test.s.page=start;test.s.inputs.clear()
         test.ensure('hall')

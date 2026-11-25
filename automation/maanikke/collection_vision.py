@@ -5,6 +5,7 @@ import unicodedata
 from pathlib import Path
 import numpy as np
 from PIL import Image
+from collection_roster import search_term
 
 ASSETS=Path(__file__).resolve().parent/'resource/image/collection'
 LAYOUT_SIZE = (1920, 1080)
@@ -84,21 +85,15 @@ def _collectible_switch(image, box, enabled):
         (track.min(axis=2)>35)&(track.max(axis=2)<120)&(np.ptp(track,axis=2)<20))
     return bool(color.mean()>=.9)
 
-def _collectible_controls(image, upper_on):
+def collectible_controls(image, upper_on):
     if image is None or image.shape[:2]!=(1080,1920):return False
     upper,lower=COLLECTIBLE_TOGGLE_BOXES
     return (_collectible_switch(image,upper,upper_on) and _collectible_switch(image,lower,True)
             and template_score(image[221:237,29:72],COLLECTIBLE_LABEL)>=.9)
 
-def _detail_attributes_visible(image):
+def detail_attributes_visible(image):
     # Only fixed row icons and labels; the numerical values and selected equipment tab are outside the crop.
     return template_score(image[438:511,1596:1686],DETAIL_ATTRIBUTES)>=.86
-
-def hidden_collectible_toggles(image):
-    return _collectible_controls(image,False) and not _detail_attributes_visible(image)
-
-def collectible_sidebar_visible(image):
-    return _collectible_controls(image,True) and _detail_attributes_visible(image)
 
 def element(image,box):
     x,y,w,h=map(int,box);rgb=image[y:y+h,x:x+w,::-1].astype(np.int16)
@@ -172,7 +167,31 @@ def candidates(image,details=True):
             found.append({'box':[x,y,128,218],'element':element(image,[x+2,y,30,31]),'burst':burst,'burstScores':ranks})
     return found
 
+def icons_fit(item, character):
+    element=item.get('element')
+    if element=='Electric':element='Electronic'
+    expected=character['element']
+    if expected=='Electric':expected='Electronic'
+    return (element is None or element==expected) and item.get('burst') in (None,character['use_burst_skill'])
+
+
+def needs_card_name(item, character):
+    return icons_fit(item,character) and any(icons_fit(item,other) for other in character['searchAlternatives'])
+
+
 def choose_candidate(items,character):
+    if character.get('searchAlternatives'):
+        confirmed=[]
+        for item in items:
+            if not icons_fit(item,character):continue
+            if needs_card_name(item,character):
+                if not search_query_matches(search_term(character),[item.get('name','')]):continue
+                reason='exact-card-name'
+            else:
+                reason='distinct-variant-icons'
+            confirmed.append((item,reason))
+        if len(confirmed)==1:return confirmed[0]
+        raise RuntimeError('检索名可匹配多个角色，当前卡片无法唯一确认目标，请核对截图')
     if len(items)==1:return items[0], 'unique-query-result'
     canonical=lambda value:'Electronic' if value in ('Electric','Electronic') else value
     matching_element=[item for item in items if canonical(item.get('element'))==canonical(character['element'])]

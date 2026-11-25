@@ -14,11 +14,11 @@ sys.dont_write_bytecode=True
 from worker import Service,ROOT,encode_png
 from admin_once import owner_alive
 from win32_metadata import elevation
-from collection_roster import load_collection_roster
-from collection_vision import candidates,choose_candidate,normalized_name,safe_point,element,name_fragment_matches,popup_outside_box,search_query_matches
+from collection_roster import load_collection_roster,search_term
+from collection_vision import candidates,choose_candidate,needs_card_name,safe_point,element,name_fragment_matches,popup_outside_box,search_query_matches
 from collection_vision import popup_surface_ready,popup_signature,popup_unchanged,active_nav_button,HOME_BUTTON,BACK_BUTTON
 from collection_vision import LAYOUT_SIZE,navigation_frame
-from collection_vision import COLLECTIBLE_TOGGLE_BOXES,collectible_sidebar_visible,hidden_collectible_toggles
+from collection_vision import COLLECTIBLE_TOGGLE_BOXES,collectible_controls,detail_attributes_visible
 
 PROJECT=ROOT.parents[1]
 DETAIL_PAGES = ('detail', 'detail_wallpaper_hidden')
@@ -48,7 +48,18 @@ class WallpaperRevealUnconfirmed(Exception):pass
 class SearchInputUnconfirmed(Exception):pass
 
 def atomic(file,data):
-    temp=file.with_suffix('.next');temp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8');temp.replace(file)
+    temp=file.with_suffix('.next')
+    temp.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+    deadline=time.monotonic()+1
+    while True:
+        try:
+            temp.replace(file)
+            return
+        except OSError as error:
+            # On Windows a reader can temporarily deny replacement of the previous snapshot.
+            if getattr(error,'winerror',None) not in (5,32,33) or time.monotonic()>=deadline:
+                raise
+            time.sleep(.05)
 
 class Pages:
     def __init__(self,service):self.s=service;self.preferred_artwork={};self.timings={};self.reset()
@@ -100,9 +111,13 @@ class Pages:
     def detail_page(self):
         if not self.ocr([0,0,160,65],'详细信息')['hit']:
             return None
-        if self.ocr([20,275,140,55],'妮姬信息')['hit'] or collectible_sidebar_visible(self.image):
+        if self.ocr([20,275,140,55],'妮姬信息')['hit']:
             return 'detail'
-        if hidden_collectible_toggles(self.image):
+        if detail_attributes_visible(self.image):
+            # Artwork can cover the left label. Active navigation distinguishes the exposed panel from a dimmed backdrop.
+            if collectible_controls(self.image,True) or self.home_button_with_back():
+                return 'detail'
+        elif collectible_controls(self.image,False):
             return 'detail_wallpaper_hidden'
         return None
     def page(self):
@@ -181,6 +196,7 @@ class Collector:
         self.service_factory=service_factory;self.pages_factory=pages_factory;self.permission=permission or (lambda:elevation(os.getpid()) is True)
         self.state={'phase':'initializing','currentIndex':0,'currentName':'','slot':'','inputRequests':0,'updatedAt':time.time()}
         self.started=time.monotonic();self.frame_captured_at=None
+        self.paused_seconds=0.
         self.frame_size=None
         self.timings={}
     def timing(self,kind,started):
@@ -192,21 +208,28 @@ class Collector:
         atomic(self.folder/'timings.json',{'elapsedSeconds':time.monotonic()-self.started,'stages':self.timings,'recognition':getattr(self.pages,'timings',{})})
     def progress(self,phase,**extra):
         self.state.update(phase=phase,updatedAt=time.time(),inputRequests=self.actions,**extra);atomic(self.folder/'progress.json',self.state)
+    def active_time(self):
+        return time.monotonic()-self.paused_seconds
     def guard(self,input_action=False,ignore_cancel=False):
         if not owner_alive(self.request['ownerPid']):raise Cancelled('主程序已退出')
         if not ignore_cancel and (self.folder/'cancel').exists():raise Cancelled('用户已停止，进度已保存')
         if time.monotonic()-self.started>max(1800,len(self.request['characters'])*180):raise Cancelled('任务运行时限已到')
-        paused=False;phase=self.state['phase']
+        paused_at=None;phase=self.state['phase']
         while not ignore_cancel and (self.folder/'pause').exists():
-            if not paused:self.progress('paused',resumePhase=phase);paused=True
+            if paused_at is None:
+                paused_at=time.monotonic()
+                self.progress('paused',resumePhase=phase)
             if (self.folder/'cancel').exists() or not owner_alive(self.request['ownerPid']):raise Cancelled('暂停期间任务已停止')
             time.sleep(.1)
-        if paused:self.progress(phase)
+        if paused_at is not None:
+            self.paused_seconds+=time.monotonic()-paused_at
+            self.frame_captured_at=None
+            self.progress(phase)
         if input_action:
             # Do not send input while a user modifier/Alt+Tab gesture is held.
-            deadline=time.monotonic()+2
+            deadline=self.active_time()+2
             while any(ctypes.windll.user32.GetAsyncKeyState(key)&0x8000 for key in (0xA4,0xA5,9,17,16,1)):
-                if time.monotonic()>deadline:raise PageDeviation('检测到用户正在操作，已让出控制')
+                if self.active_time()>deadline:raise PageDeviation('检测到用户正在操作，已让出控制')
                 self.guard();time.sleep(.1)
     def emit(self,kind,data=None,image=False,ignore_cancel=False):
         started=time.monotonic()
@@ -217,11 +240,11 @@ class Collector:
             self.timing('equipmentPngEncode' if kind=='equipment' else 'evidencePngEncode',encoded)
             (spool/(str(number)+'.png')).write_bytes(png)
         atomic(spool/(str(number)+'.json'),{'id':number,'kind':kind,'data':data or {},'image':bool(image),'savedAt':time.time()})
-        deadline=time.monotonic()+40
+        deadline=self.active_time()+40
         reply=spool/(str(number)+'.reply.json')
         while not reply.exists():
             self.guard(ignore_cancel=ignore_cancel)
-            if time.monotonic()>deadline:raise RuntimeError('主程序处理截图超时，未继续输入')
+            if self.active_time()>deadline:raise RuntimeError('主程序处理截图超时，未继续输入')
             time.sleep(.06)
         result=json.loads(reply.read_text('utf-8'))
         self.timing('equipmentOcrAndSave' if kind=='equipment' else 'eventAndImageSave',started)
@@ -240,9 +263,14 @@ class Collector:
             self.progress(self.state['phase'],captureBackend=backend,captureFallback=captured.get('captureFallback',False))
         if record:self.emit('frame',{'phase':self.state['phase']},True)
     def wait(self,predicate,label,initial=.7,timeout=20,confirmations=2,record=True,interval=.65):
-        self.progress(label);self.delay(initial);deadline=time.monotonic()+timeout;consecutive=0
-        while time.monotonic()<deadline:
-            self.capture(False);started=time.monotonic();consecutive=consecutive+1 if predicate() else 0;self.timing('verification',started)
+        self.progress(label);self.delay(initial);deadline=self.active_time()+timeout;consecutive=0
+        last_pause=self.paused_seconds
+        while self.active_time()<deadline:
+            self.capture(False)
+            if self.paused_seconds!=last_pause:
+                last_pause=self.paused_seconds
+                consecutive=0
+            started=time.monotonic();consecutive=consecutive+1 if predicate() else 0;self.timing('verification',started)
             if consecutive>=confirmations:
                 # Persist one final evidence frame, not every unsuccessful poll.
                 # Multi-frame checks still use separate native captures.
@@ -252,6 +280,8 @@ class Collector:
         raise PageDeviation('等待页面确认超时：'+label)
     def input(self,label,call=None,locate=None):
         self.guard(True)
+        if call and self.paused_seconds and self.frame_captured_at is None:
+            raise PageDeviation('暂停后重新核对搜索输入框')
         if self.actions>=30*len(self.request['characters'])+25:raise RuntimeError('动作预算用尽')
         click=locate() if locate else None
         # inspect() rechecks the bound window identity, visibility and physical client size.
@@ -361,7 +391,7 @@ class Collector:
                 self.progress('搜索框仍为空，重新聚焦一次')
         raise SearchInputUnconfirmed('搜索框未进入输入状态，已停止')
     def search(self,character):
-        name=character['nameCn'];self.ensure('list')
+        name=search_term(character);self.ensure('list')
         if not self.pages.ocr([735,286,375,58],'搜索妮姬的名字')['hit']:
             clear=self.pages.match('clear',[1065,285,50,65])
             if clear['hit']:self.recognized_click('清空搜索',clear,{'list'},fresh=False)
@@ -370,31 +400,57 @@ class Collector:
         self.wait(lambda:self.pages.is_page('list') and self.pages.ocr([735,286,375,58],'搜索妮姬的名字')['hit'],'等待空搜索框稳定',initial=.2,confirmations=2,interval=.15,record=False)
         self.enter_search_text(name)
         self.click('提交角色搜索',[1117,300,57,28],{'list'},fresh=False)
-        stable={'key':None,'n':0,'items':[]}
+        previous=None
+        items=[]
         def results_ready():
-            if not self.pages.is_page('list') or not self.query_matches(name):return False
+            nonlocal previous,items
+            if not self.pages.is_page('list') or not self.query_matches(name):
+                previous=None
+                return False
             items=candidates(self.pages.image,details=False)
-            if len(items)>8:return False # Still showing the unfiltered grid.
-            if len(items)>1:items=candidates(self.pages.image)
-            key=[(i['box'],i.get('element'),i.get('burst')) for i in items]
-            stable['n']=stable['n']+1 if stable['key']==key else 1;stable.update(key=key,items=items)
-            return stable['n']>=2
-        # This predicate already requires two identical frames; don't wrap it
-        # in a second two-frame counter (which previously required three).
-        try:self.wait(results_ready,'等待搜索结果',initial=1,confirmations=1,interval=.25)
+            # An empty grid can persist for multiple frames while the cards load.
+            if not items or len(items)>8:
+                previous=None
+                return False
+            variants=character.get('searchAlternatives')
+            if len(items)>1 or variants:items=candidates(self.pages.image)
+            if variants:
+                for item in items:
+                    if needs_card_name(item,character):
+                        x,y,_,_=item['box']
+                        left=x+34
+                        label=self.pages.ocr([left,y+180,94,36])
+                        # An OCR box cut off at a card edge can contain just the base of a scrolling variant name.
+                        box=label['box']
+                        if label['hit'] and left<box[0] and box[0]+box[2]<left+94:
+                            item['name']=''.join(self.pages.texts(label))
+            # A different variant's scrolling caption may change between frames.
+            # Only a change in whether its name matches this target affects our decision.
+            key=(self.paused_seconds,[(i['box'],i.get('element'),i.get('burst'),search_query_matches(name,[i.get('name','')])) for i in items])
+            unchanged=key==previous
+            previous=key
+            return unchanged
+        evidence={'phase':'等待搜索结果','nameCode':character['nameCode'],'searchTerm':name,'clientSize':list(self.frame_size)}
+        try:self.wait(results_ready,'等待搜索结果',initial=1,confirmations=1,interval=.25,record=False)
         except PageDeviation:
-            if self.pages.is_page('list') and self.query_matches(name):raise SkipRole('搜索结果未收敛，无法可靠判别')
-            raise
-        items=stable['items']
-        if not items:raise SkipRole('未检测到可确认的角色卡，请核对截图；不代表未拥有')
-        if len(items)>8:raise SkipRole('搜索结果过多，无法可靠判别')
-        if len(items)>1:
+            if not self.pages.is_page('list') or not self.query_matches(name):raise
+            self.emit('frame',evidence,True)
+            if not items:raise SkipRole('未检测到可确认的角色卡，请核对截图；不代表未拥有')
+            if len(items)>8:raise SkipRole('搜索结果过多，无法可靠判别')
+            raise SkipRole('搜索结果未收敛，无法可靠判别')
+        confirmed_pause=self.paused_seconds
+        self.emit('frame',evidence,True)
+        if len(items)>1 and not character.get('searchAlternatives'):
             for item in items:
                 x,y,_,_=item['box'];item['name']=''.join(self.pages.texts(self.pages.ocr([x+34,y+180,94,36])))
         try:chosen,reason=choose_candidate(items,character)
         except RuntimeError as error:raise SkipRole(str(error)) from error
         self.emit('candidate',{'nameCode':character['nameCode'],'candidates':items,'chosen':chosen,'reason':reason})
-        x,y,_,_=chosen['box'];self.click('打开目标角色',[x+24,y+42,79,126],{'list'},fresh=False)
+        def chosen_box():
+            if self.paused_seconds!=confirmed_pause:raise PageDeviation('恢复后重新核对角色搜索结果')
+            x,y,_,_=chosen['box']
+            return [x+24,y+42,79,126]
+        self.click('打开目标角色',chosen_box,{'list'},fresh=False)
         self.wait(lambda:self.pages.page() in DETAIL_PAGES,'确认角色详情',initial=.4,confirmations=1,interval=.2)
     def read_character(self,character):
         if self.pages.page()=='detail_wallpaper_hidden':
@@ -430,14 +486,19 @@ class Collector:
             self.close_popup(from_snapshot=True)
         self.emit('character',{'nameCode':character['nameCode']})
     def wait_popup(self,timeout=20):
-        self.progress('等待装备弹窗稳定');started=time.monotonic();deadline=started+timeout;previous=None
+        self.progress('等待装备弹窗稳定');started=time.monotonic();settle_start=self.active_time();deadline=settle_start+timeout;previous=None
+        last_pause=self.paused_seconds
         self.delay(.3)
-        while time.monotonic()<deadline:
+        while self.active_time()<deadline:
             self.capture(False)
+            if self.paused_seconds!=last_pause:
+                last_pause=self.paused_seconds
+                settle_start=self.active_time()
+                previous=None
             # Cheap pixel checks reject fading/moving frames before template/OCR.
             if popup_surface_ready(self.pages.image):
                 current=popup_signature(self.pages.image)
-                if previous is not None and time.monotonic()-started>=.45 and popup_unchanged(previous,current):
+                if previous is not None and self.active_time()-settle_start>=.45 and popup_unchanged(previous,current):
                     self.timing('popupVisualWait',started)
                     classified=time.monotonic();page=self.pages.page();self.timing('popupClassification',classified)
                     if page in ('overload','non_overload','equipment_unknown'):
@@ -454,8 +515,13 @@ class Collector:
             target=next((w for w in self.s.windows()['windows'] if w['hwnd']==self.request['target']['hwnd'] and w['pid']==self.request['target']['pid']),None)
             if not target or target['elevated'] is not True:raise RuntimeError('国服窗口身份或权限已变化')
             self.s.connect(target['hwnd']);self.progress('等待用户准备');self.delay(5)
-            self.ensure('hall');self.emit('started',{'hallConfirmed':True})
-            self.ensure('list')
+            self.capture(False)
+            if self.pages.is_page('list'):
+                self.wait(lambda:self.pages.is_page('list'),'确认当前妮姬列表',initial=.15,interval=.2,record=False)
+                self.emit('started',{'listConfirmed':True})
+            else:
+                self.ensure('hall');self.emit('started',{'hallConfirmed':True})
+                self.ensure('list')
             done=set(self.request.get('completedCodes',[]))
             for index,character in enumerate(self.request['characters']):
                 if character['nameCode'] in done:continue
@@ -465,7 +531,8 @@ class Collector:
                     try:
                         self.search(character);self.read_character(character);break
                     except SkipRole as error:
-                        self.emit('skipped',{'nameCode':character['nameCode'],'reason':str(error)})
+                        self.emit('skipped',{'nameCode':character['nameCode'],'reason':str(error),
+                                             'searchTerm':search_term(character),'clientSize':list(self.frame_size)})
                         break
                     except PageDeviation:
                         if attempt:raise
@@ -475,9 +542,15 @@ class Collector:
             self.ensure('hall');self.progress('completed',slot='')
             self.emit('done',{'returnedToLobby':True,'inputRequests':self.actions})
         except Exception as error:
-            self.progress('canceled' if isinstance(error,Cancelled) else 'failed',error=str(error))
-            try:self.emit('failed',{'error':str(error),'canceled':isinstance(error,Cancelled),'inputRequests':self.actions},image=self.s is not None and self.s.last is not None,ignore_cancel=True)
-            except Exception:pass
+            canceled=isinstance(error,Cancelled)
+            phase='canceled' if canceled else 'failed'
+            # Progress itself can be locked. Preserve the original cause independently.
+            atomic(self.folder/'run-result.json',{'phase':phase,'error':str(error)})
+            try:
+                self.progress(phase,error=str(error))
+            finally:
+                self.emit('failed',{'error':str(error),'canceled':canceled,'inputRequests':self.actions},
+                          image=self.s is not None and self.s.last is not None,ignore_cancel=True)
         finally:
             try:self.save_timings()
             finally:

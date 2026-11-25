@@ -4849,10 +4849,12 @@
     {
       "nameCode": "5151",
       "resourceId": "315",
-      "nameCn": "爱德：特务兔女郎",
+      "nameCn": "爱德：特工兔女郎",
       "nameEn": "Ade: Agent Bunny",
-      "aliases": [],
-      "pinyin": "adtwtnl",
+      "aliases": [
+        "爱德：特务兔女郎"
+      ],
+      "pinyin": "adtgtnl adtwtnl",
       "avatar": "avatars/si_c315_00_s.png",
       "artworks": [
         {

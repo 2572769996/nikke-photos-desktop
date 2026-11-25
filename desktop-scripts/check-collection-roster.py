@@ -14,6 +14,11 @@ codes = definition['nameCodes']
 full = json.loads((project / 'src/data/roster.json').read_text('utf-8'))['characters']
 outside = next(c['nameCode'] for c in full if c['nameCode'] not in codes)
 last_release = max(datetime.fromisoformat(date) for date in definition['unlockAt'].values())
+ade=next(c for c in full if c['nameCn']=='爱德')
+rabbit='5151'
+before_unlock=datetime.fromisoformat(definition['unlockAt'][rabbit])-timedelta(seconds=1)
+base_ade,=load_collection_roster(project,[ade['nameCode']],before_unlock)
+assert rabbit in [c['nameCode'] for c in base_ade['searchAlternatives']]
 assert [c['nameCode'] for c in load_collection_roster(project, codes, last_release)] == codes
 for code, date in definition['unlockAt'].items():
     at = datetime.fromisoformat(date)

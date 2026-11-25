@@ -1,7 +1,8 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {createScreenshotStore,DAY}=require('../electron/maanikke-screenshots.cjs');
 const {PNG}=require('pngjs');
-const root=path.resolve(__dirname,'../../codex temp/nikke-desktop/automation-dev-copy/screenshot-check-'+Date.now());
+const cacheRoot=process.env.NIKKE_CACHE_DIR||path.resolve(__dirname,'../../codex temp/nikke-desktop/automation-dev-copy');
+const root=path.join(cacheRoot,'screenshot-check-'+Date.now());
 fs.mkdirSync(root,{recursive:true});
 const png=PNG.sync.write(new PNG({width:2,height:2}));
 let clock=1000000000000;
@@ -38,6 +39,44 @@ const previous=store.stats().settings.directory;
 store.changeDirectory(path.join(root,'new-location'));assert.notEqual(store.stats().settings.directory,previous);
 assert.equal(store.stats().locations[0].directory,previous);store.clean();assert.ok(fs.existsSync(unrelated));
 assert.ok(fs.existsSync(path.join(root,'maanikke-screenshots.json')));
+const batchRoot=path.join(root,'batch'),batch=createScreenshotStore({cacheRoot:batchRoot});
+const batchTask=batch.beginTask(),batchIds=[];
+let markerReads=0,addReads;
+const originalRead=fs.readFileSync;
+fs.readFileSync=function(file,...args){
+ if(path.basename(String(file))==='.nikke-screenshots-owner.json')markerReads++;
+ return originalRead.call(this,file,...args);
+};
+try{
+ for(let i=0;i<100;i++)batchIds.push(batch.add({taskId:batchTask,png}));
+ addReads=markerReads;
+ batch.stats(); // The UI polls this during collection.
+}finally{fs.readFileSync=originalRead;}
+console.log(JSON.stringify({batchSize:batchIds.length,addReads,pollReads:markerReads-addReads}));
+assert.ok(addReads<=200,'Saving 100 screenshots rechecked earlier images '+addReads+' times');
+assert.equal(markerReads,addReads,'The routine status poll rescanned previously saved images');
+const batchFile=path.join(batchRoot,'maanikke-screenshots',batchIds[0]+'.png');
+assert.equal(batch.stats().bytes,png.length*100);
+fs.appendFileSync(batchFile,Buffer.alloc(24));
+assert.equal(batch.refresh().bytes,png.length*100+24);
+fs.unlinkSync(batchFile);
+const reopened=createScreenshotStore({cacheRoot:batchRoot});
+reopened.startup();
+assert.equal(reopened.stats().bytes,png.length*99);
+reopened.markException(batchIds[1],'fixture-skip');
+reopened.endTask(batchTask);
+const assigned=JSON.parse(fs.readFileSync(path.join(batchRoot,'maanikke-screenshots.json'))).entries;
+assert.equal(assigned.length,1);assert.equal(assigned[0].character,'fixture-skip');
+assert.equal(reopened.stats().bytes,png.length);
+assert.equal(reopened.read(assigned[0].id).available,true);
+const blockedRoot=path.join(root,'start-failure');
+const blocked=createScreenshotStore({cacheRoot:blockedRoot});
+const indexTemp=path.join(blockedRoot,'maanikke-screenshots.json.next');
+fs.mkdirSync(indexTemp);
+assert.throws(()=>blocked.beginTask(),error=>['EISDIR','EPERM','EACCES'].includes(error.code));
+assert.equal(blocked.stats().activeTasks,0);
+fs.rmdirSync(indexTemp);
+const nextTask=blocked.beginTask();blocked.endTask(nextTask);
 assert.throws(()=>store.settings({exceptionDays:2}),/无效/);
 assert.throws(()=>store.settings({maxMiB:0}),/无效/);
 store.settings({maxMiB:16});task=store.beginTask();

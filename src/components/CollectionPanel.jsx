@@ -99,6 +99,7 @@ export default function CollectionPanel({bridge,disabled,hwnd,onActive,includeSc
  }
  const start=()=>act('collectionStart',{nameCodes:codes,hwnd:hwnd||undefined,keys})
  const resume=()=>act('collectionStart',{nameCodes:status.nameCodes,resumeRunId:status.runId,hwnd:hwnd||undefined,keys})
+ const retrySkipped=()=>act('collectionStart',{nameCodes:status.nameCodes,resumeRunId:status.runId,retrySkipped:true,hwnd:hwnd||undefined,keys})
 
  return <section className="collection-workspace" aria-label="角色装备采集">
   <div className="collection-summary"><div><span className="collection-eyebrow">角色装备采集</span><h2>{statusText}</h2><p>{active?`${currentName||'正在准备游戏连接'} · 进度会自动保存`:'先选择角色，再启动采集。结果保存为草稿，供你核对。'}</p></div><div className="collection-summary-actions"><span>已选 {codes.length} / {collectionCharacters.length}</span><button className="collection-primary" disabled={!bridge||!ready||locked||!codes.length} onClick={start}>启动所选角色采集（UAC）</button></div></div>
@@ -122,7 +123,7 @@ export default function CollectionPanel({bridge,disabled,hwnd,onActive,includeSc
   </div>
 
   <div role="tabpanel" id="collection-panel-progress" aria-labelledby="collection-tab-progress" hidden={tab!=='progress'}>
-   <section className="maa-card"><div className="collection-progress-heading"><div><h3>{statusText}</h3><p>{currentName?`当前角色：${currentName}`:'启动后会识别当前界面，回到大厅后开始采集。'}{status?.returnedToLobby?' · 已返回大厅':''}</p></div><span>{status?.createdAt?duration((active?now:status.finishedAt||now)-status.createdAt):'尚未开始'}</span></div>
+   <section className="maa-card"><div className="collection-progress-heading"><div><h3>{statusText}</h3><p>{currentName?`当前角色：${currentName}`:'已在妮姬列表或角色搜索页时，可以直接开始或续接采集。'}{status?.returnedToLobby?' · 已返回大厅':''}</p></div><span>{status?.createdAt?duration((active?now:status.finishedAt||now)-status.createdAt):'尚未开始'}</span></div>
     <progress aria-label="采集总进度" max="100" value={percentage}/><div className="collection-metrics"><div><strong>{finished} / {total}</strong><span>已处理角色</span></div><div><strong>{complete}</strong><span>完成</span></div><div><strong>{skipped.length}</strong><span>跳过</span></div><div><strong>{equipmentCount}</strong><span>已截图部位</span></div><div><strong>{unread.length}</strong><span>待核对词条</span></div></div>
     {status?.pendingOCR>0&&<p role="status">后台待识别 {status.pendingOCR} 件装备{status.returnedToLobby?'，游戏操作已结束，正在保存结果':'，游戏截图继续进行'}。</p>}
      <div role="status" className="maa-collection-status">{statusText} · 已完成 {complete} / {total} · 跳过 {skipped.length}{status?.returnedToLobby?' · 已返回大厅':''}{status?.progress?.captureBackend?` · 截图：${status.progress.captureBackend==='PrintWindow'?'PrintWindow / GDI（备用）':status.progress.captureBackend}`:''}</div>
@@ -133,7 +134,7 @@ export default function CollectionPanel({bridge,disabled,hwnd,onActive,includeSc
 
   <div role="tabpanel" id="collection-panel-results" aria-labelledby="collection-tab-results" hidden={tab!=='results'}>
    <section className="maa-card"><div className="collection-progress-heading"><div><h3>采集结果与核对</h3><p>点击词条修改，核对后确认写入当前本地档案。</p></div><button disabled={active||!records.length} onClick={exportDraft}>导出结果草稿 JSON</button></div>
-    {skipped.length>0&&<div role="alert" className="collection-notice"><strong>跳过 {skipped.length} 名角色</strong><ul>{skipped.map(c=><li key={c.nameCode}>{c.name}：{c.reason}</li>)}</ul></div>}
+    {skipped.length>0&&<div className="collection-notice"><strong>跳过 {skipped.length} 名角色</strong><ul>{skipped.map(c=><li key={c.nameCode}>{c.name}：{c.reason}</li>)}</ul><button disabled={!bridge||!ready||locked} onClick={retrySkipped}>仅重试跳过角色（UAC）</button></div>}
     {unread.length>0&&<div role="alert" className="collection-notice"><strong>{unread.length} 条词条需核对，候选尚未写入档案</strong><ul>{unread.map(v=><li key={v}>{v}</li>)}</ul></div>}
     <div className="collection-result-filters" aria-label="结果筛选">{[['all','全部结果'],['unreadable','需要核对'],['skipped','已跳过']].map(([id,label])=><button key={id} aria-pressed={resultFilter===id} onClick={()=>setResultFilter(id)}>{label}</button>)}</div>
     {!visibleRecords.length&&<div className="collection-empty">{records.length?'此分类没有结果':'完成采集后，这里会显示每名角色的四件装备词条。'}</div>}

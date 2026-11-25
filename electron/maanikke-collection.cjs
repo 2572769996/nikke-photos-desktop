@@ -84,7 +84,8 @@ function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execut
   let progress=null;if(active){try{progress=JSON.parse(fs.readFileSync(path.join(active.folder,'progress.json'),'utf8'))}catch{}}
   return {...value,progress};
  }
- const log=(job,text)=>{job.status.logs.push(new Date().toLocaleTimeString()+' '+text);job.status.logs=job.status.logs.slice(-80);persist(job)};
+ const appendLog=(job,text)=>{job.status.logs.push(new Date().toLocaleTimeString()+' '+text);job.status.logs=job.status.logs.slice(-80)};
+ const log=(job,text)=>{appendLog(job,text);persist(job)};
  function cancel(){if(active){active.stopRequested=true;fs.writeFileSync(path.join(active.folder,'cancel'),'user stop');log(active,'已请求停止；保留已截图内容的后台识别与进度');}}
  function pause(){if(active&&!active.navigationDone){const file=path.join(active.folder,'pause');if(fs.existsSync(file)){fs.unlinkSync(file);active.status.paused=false;log(active,'继续前重新核对当前页面');}else{fs.writeFileSync(file,'paused');active.status.paused=true;log(active,'已请求暂停游戏操作，后台继续识别已截图内容');}}return status();}
  async function readEquipment(job,event,png){
@@ -146,18 +147,22 @@ function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execut
   if(event.image){
    if(!fs.existsSync(png)||fs.lstatSync(png).isSymbolicLink())throw Error('Missing helper screenshot');
    imageId=screenshots.add({taskId:job.screenshotTask,kind:event.kind==='equipment'?'equipment':event.kind==='failed'?'exception':'process',character:event.kind==='equipment'?event.data.nameCode:null,png:fs.readFileSync(png),savedAt:event.savedAt*1000});
-   job.latestImageId=imageId;
+   if(event.kind==='frame'&&event.data.phase==='等待搜索结果'&&event.data.nameCode===job.status.nameCodes[job.status.currentIndex]){
+    const {nameCode,searchTerm,clientSize}=event.data;
+    job.searchFrame={nameCode,searchTerm,clientSize,imageId};
+   }
   }
   if(event.kind==='equipment')result=queueEquipment(job,event,png,imageId);
   if(event.kind==='characterBegin'){
-   const code=event.data.nameCode;if(!job.status.nameCodes.includes(code))throw Error('Invalid character begin');
-   job.status.currentIndex=event.data.index;job.status.currentName=byCode.get(code).nameCn;
+   const code=event.data.nameCode;if(!job.requestedCodes.includes(code))throw Error('Invalid character begin');
+   job.searchFrame=null;
+   job.status.currentIndex=job.status.nameCodes.indexOf(code);job.status.currentName=byCode.get(code).nameCn;
    job.generations[code]=(job.generations[code]||0)+1;
    job.status.draft[code]={nameCode:code,name:byCode.get(code).nameCn,status:'collecting',equipment:{}};log(job,'开始 '+job.status.currentName);
   }
   if(event.kind==='candidate')log(job,'候选确认：'+byCode.get(event.data.nameCode)?.nameCn+'（'+event.data.reason+'）');
   if(event.kind==='identity')log(job,'立绘辅助核对：'+byCode.get(event.data.nameCode)?.nameCn+' · '+(event.data.artwork?.hit?'命中本地皮肤参考':'未命中，使用已确认文字和属性'));
-  if(event.kind==='started'){job.status.stage='collecting';log(job,'已确认大厅，开始角色采集');}
+  if(event.kind==='started'){job.status.stage='collecting';log(job,event.data.listConfirmed?'已确认妮姬列表，直接开始角色搜索':'已确认大厅，开始角色采集');}
   if(event.kind==='character'){
    const code=event.data.nameCode,entry=job.status.draft[code];
    if(!entry||SLOTS.some(slot=>!entry.equipment[slot]))throw Error('角色四槽结果尚未保存');
@@ -165,14 +170,17 @@ function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execut
    if(entry.status!=='complete')log(job,'截图完成 '+entry.name+'，后台识别中');
   }
   if(event.kind==='skipped'){
-   const code=event.data.nameCode;if(!job.status.nameCodes.includes(code))throw Error('Invalid skip');
+   const code=event.data.nameCode;if(!job.requestedCodes.includes(code))throw Error('Invalid skip');
    job.generations[code]=(job.generations[code]||0)+1;
-   job.status.draft[code]={nameCode:code,name:byCode.get(code).nameCn,status:'skipped',reason:String(event.data.reason).slice(0,500),equipment:{}};
-   if(job.latestImageId)screenshots.markException(job.latestImageId);
+   const frame=job.searchFrame?.nameCode===code?job.searchFrame:null;
+   const {searchTerm,clientSize}=frame||event.data;
+   const searchEvidence={searchTerm,clientSize,imageId:frame?.imageId};
+   if(frame)screenshots.markException(frame.imageId,code);
+   job.status.draft[code]={nameCode:code,name:byCode.get(code).nameCn,status:'skipped',reason:String(event.data.reason).slice(0,500),equipment:{},searchEvidence};
    persist(job);screenshots.characterDone(job.screenshotTask,code);log(job,'跳过 '+byCode.get(code).nameCn+'：'+event.data.reason);
   }
   if(event.kind==='done'){
-   if(!event.data.returnedToLobby||job.status.nameCodes.some(code=>{const e=job.status.draft[code];return !e||e.status!=='skipped'&&(!e.captureComplete||SLOTS.some(s=>!e.equipment[s]))}))throw Error('角色截图或大厅验证未完成');
+   if(!event.data.returnedToLobby||job.requestedCodes.some(code=>{const e=job.status.draft[code];return !e||e.status!=='skipped'&&(!e.captureComplete||SLOTS.some(s=>!e.equipment[s]))}))throw Error('角色截图或大厅验证未完成');
    job.navigationDone=true;job.status.stage='recognizing';job.status.inputRequests=event.data.inputRequests||0;job.status.returnedToLobby=true;log(job,'已返回大厅，等待后台识别保存');
    const paused=path.join(job.folder,'pause');if(fs.existsSync(paused))fs.unlinkSync(paused);job.status.paused=false;persist(job);
   }
@@ -180,35 +188,54 @@ function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execut
   if(event.kind!=='equipment'&&event.image&&fs.existsSync(png))fs.unlinkSync(png);
   return result;
  }
- async function start({nameCodes,resumeRunId,keys={pause:'F8',stop:'F9'},target}){
+ async function start({nameCodes,resumeRunId,retrySkipped=false,keys={pause:'F8',stop:'F9'},target}){
   if(active)throw Error('已有角色采集任务正在运行');
   if(last?.reviewImageIds?.length&&!last.reviewReleasedAt&&!resumeRunId)throw Error('请先在结果页结束上一轮截图核对，再开始新任务；未完成任务可以续接。');
   if(!Array.isArray(nameCodes)||!nameCodes.length||nameCodes.length>roster.length||new Set(nameCodes).size!==nameCodes.length||nameCodes.some(c=>!byCode.has(c)||!cnCodes.has(c)))throw Error('请选择有效国服内置角色');
   if(!target||!/^\d+$/.test(target.hwnd)||!Number.isSafeInteger(target.pid))throw Error('无效游戏目标');
   if(typeof keys.pause!=='string'||typeof keys.stop!=='string'||!keys.pause.trim()||!keys.stop.trim()||keys.pause===keys.stop)throw Error('暂停和停止快捷键必须有效且不同');
   const registered=[];
-  try{for(const [key,callback] of [[keys.pause,()=>pause()],[keys.stop,()=>cancel()]]){if(!shortcuts.register(key,callback))throw Error('快捷键 '+key+' 已被占用，未启动任务，请改键');registered.push(key);}}
-  catch(error){registered.forEach(k=>shortcuts.unregister(k));throw error;}
-  const runId=crypto.randomUUID(),folder=path.join(base,runId);fs.mkdirSync(path.join(folder,'spool'),{recursive:true});
-  let draft={},completedCodes=[],reviewImageIds=[];
+  const runId=crypto.randomUUID(),folder=path.join(base,runId);
+  let screenshotTask;
+  let draft={},requestedCodes=nameCodes,completedCodes=[],reviewImageIds=[];
+  if(retrySkipped&&!resumeRunId)throw Error('补采需要选择当前任务');
   try{
+   for(const [key,callback] of [[keys.pause,()=>pause()],[keys.stop,()=>cancel()]]){
+    if(!shortcuts.register(key,callback))throw Error('快捷键 '+key+' 已被占用，未启动任务，请改键');
+    registered.push(key);
+   }
+   fs.mkdirSync(path.join(folder,'spool'),{recursive:true});
    if(resumeRunId){
     if(!/^[a-f0-9-]{36}$/.test(resumeRunId))throw Error('无效续接任务');
-    const previous=JSON.parse(fs.readFileSync(path.join(base,resumeRunId,'status.json'),'utf8'));
-    if(JSON.stringify(previous.nameCodes)!==JSON.stringify(nameCodes)||previous.stage==='completed')throw Error('续接名单不一致或任务已完成');
-    draft=previous.draft;reviewImageIds=previous.reviewImageIds||[];completedCodes=nameCodes.filter(code=>['complete','skipped'].includes(draft[code]?.status));
-    if(previous.screenshotTaskId)screenshots.endTask(previous.screenshotTaskId,{failed:true,resumeProtected:false});
+    const previous=inactiveRun(resumeRunId);
+    if(JSON.stringify(previous.nameCodes)!==JSON.stringify(nameCodes))throw Error('续接名单不一致');
+    draft=structuredClone(previous.draft);reviewImageIds=[...(previous.reviewImageIds||[])];
+    if(retrySkipped){
+     requestedCodes=nameCodes.filter(code=>draft[code]?.status==='skipped');
+     if(!requestedCodes.length)throw Error('本轮没有已跳过的角色');
+    }else{
+     if(previous.stage==='completed')throw Error('任务已完成');
+     completedCodes=nameCodes.filter(code=>['complete','skipped'].includes(draft[code]?.status));
+    }
    }
-   const screenshotTask=screenshots.beginTask();
-   const job={folder,registered,screenshotTask,generations:{},ocrTail:Promise.resolve(),status:{runId,folder,nameCodes,keys,active:true,stage:'starting',paused:false,pendingOCR:0,reviewImageIds,createdAt:Date.now(),currentIndex:0,currentName:'',draft,logs:[],screenshotTaskId:screenshotTask}};
-   active=job;last=job.status;persist(job);atomic(latest,{runId});
-   atomic(path.join(folder,'request.json'),{version:1,action:'collect-roster',runId,createdAt:Date.now()/1000,ownerPid:process.pid,capturePolicy:process.env.NIKKE_CAPTURE_POLICY==='printwindow-only'?'printwindow-only':'auto',nameCodes,completedCodes,target:{hwnd:target.hwnd,pid:target.pid}});
+   screenshotTask=screenshots.beginTask();
+   const job={folder,registered,screenshotTask,requestedCodes,generations:{},ocrTail:Promise.resolve(),status:{runId,folder,nameCodes,keys,active:true,stage:'starting',paused:false,pendingOCR:0,reviewImageIds,createdAt:Date.now(),currentIndex:0,currentName:'',draft,logs:[],screenshotTaskId:screenshotTask}};
+   persist(job);
+   atomic(path.join(folder,'request.json'),{version:1,action:'collect-roster',runId,createdAt:Date.now()/1000,ownerPid:process.pid,capturePolicy:process.env.NIKKE_CAPTURE_POLICY==='printwindow-only'?'printwindow-only':'auto',nameCodes:requestedCodes,completedCodes,target:{hwnd:target.hwnd,pid:target.pid}});
+   // Publish only after all startup files exist; a failed start keeps the previous run available.
+   atomic(latest,{runId});active=job;last=job.status;
    let index=1,handling=false;
    const tick=async()=>{
     if(handling)return;const request=path.join(folder,'spool',index+'.json');if(!fs.existsSync(request))return;
     handling=true;const reply=path.join(folder,'spool',index+'.reply.json');
     try{const event=JSON.parse(fs.readFileSync(request,'utf8'));if(event.id!==index)throw Error('Event sequence mismatch');const result=await handle(job,event);atomic(reply,{ok:true,result});}
-    catch(error){job.status.error=error.message;atomic(reply,{ok:false,error:error.message});log(job,'处理失败：'+error.message);}
+    catch(error){
+     job.status.error=error.message;
+     try{atomic(reply,{ok:false,error:error.message});}
+     catch(replyError){job.status.error+='；发送失败回执时出错：'+replyError.message;}
+     // The event may have failed while persisting this very run. Flush the error log during finalization.
+     appendLog(job,'处理失败：'+job.status.error);
+    }
     finally{index++;handling=false;}
    };
    const timer=setInterval(()=>void tick(),80);
@@ -222,24 +249,63 @@ function createCollection({project,cacheRoot,screenshots,shortcuts,launch=execut
      await job.ocrTail;
      if(job.ocrFailure)throw job.ocrFailure;
      if(job.navigationDone){
-      if(job.status.nameCodes.some(code=>!['complete','skipped'].includes(job.status.draft[code]?.status)))throw Error('后台结果尚未完整保存');
-      job.terminal=job.stopRequested?'canceled':'completed';log(job,'任务结束，全部结果已保存');
+      const processed=code=>['complete','skipped'].includes(job.status.draft[code]?.status);
+      if(!requestedCodes.every(processed)||retrySkipped&&requestedCodes.some(code=>!job.generations[code]))throw Error('后台结果尚未完整保存');
+      const finished=nameCodes.every(processed);
+      job.terminal=job.stopRequested?'canceled':finished?'completed':'interrupted';
+      log(job,finished?'任务结束，全部结果已保存':'跳过角色补采结束，可从中断角色继续');
      }
-     if(!job.terminal){job.terminal='failed';job.status.error=job.status.error||'采集模块退出，进度已保存';}
-    }catch(error){job.terminal='failed';job.status.error=error.message;fs.writeFileSync(path.join(folder,'cancel'),'launcher failed');}
+     if(!job.terminal){
+      const reportFile=path.join(folder,'run-result.json');
+      if(fs.existsSync(reportFile)){
+       const result=JSON.parse(fs.readFileSync(reportFile,'utf8'));
+       if(!['failed','canceled'].includes(result.phase)||typeof result.error!=='string')throw Error('采集模块终态报告无效');
+       job.terminal=result.phase;job.status.error=result.error;
+      }else{
+       job.terminal='failed';
+       const exit=launchResult.exitCode?`（退出码 ${launchResult.exitCode}）`:'';
+       job.status.error=(job.status.error||'采集模块退出，进度已保存')+exit;
+      }
+     }
+    }catch(error){
+     job.terminal='failed';job.status.error=error.message;
+     try{fs.writeFileSync(path.join(folder,'cancel'),'launcher failed');}
+     catch(cancelError){job.status.error+='；停止标记写入失败：'+cancelError.message;}
+    }
     finally{
-     clearInterval(timer);while(handling)await new Promise(r=>setTimeout(r,30));
-     await job.ocrTail;
-     // Only our own numeric spool PNGs and fixed scratch image are temporary.
-     for(const name of fs.readdirSync(path.join(folder,'spool'))){if(/^\d+\.png$/.test(name)){const p=path.join(folder,'spool',name);if(!fs.lstatSync(p).isSymbolicLink())fs.unlinkSync(p);}}
-     const scratch=path.join(folder,'runtime','latest-game.png');if(fs.existsSync(scratch)&&!fs.lstatSync(scratch).isSymbolicLink())fs.unlinkSync(scratch);
-     screenshots.endTask(screenshotTask,{failed:job.terminal!=='completed'});
-     registered.forEach(k=>shortcuts.unregister(k));job.status.active=false;job.status.stage=job.terminal||'failed';job.status.finishedAt=Date.now();persist(job);last=job.status;if(active===job)active=null;
+     clearInterval(timer);
+     const reportError=(label,error)=>{
+      if(job.terminal==='completed')job.terminal='failed';
+      job.status.error=[job.status.error,label+'：'+error.message].filter(Boolean).join('；');
+     };
+     try{
+      while(handling)await new Promise(r=>setTimeout(r,30));
+      try{await job.ocrTail;}catch(error){reportError('后台识别收尾失败',error);}
+      try{
+       // Only our own numeric spool PNGs and fixed scratch image are temporary.
+       for(const name of fs.readdirSync(path.join(folder,'spool'))){if(/^\d+\.png$/.test(name)){const p=path.join(folder,'spool',name);if(!fs.lstatSync(p).isSymbolicLink())fs.unlinkSync(p);}}
+       const scratch=path.join(folder,'runtime','latest-game.png');if(fs.existsSync(scratch)&&!fs.lstatSync(scratch).isSymbolicLink())fs.unlinkSync(scratch);
+      }catch(error){reportError('清理临时截图失败',error);}
+      try{screenshots.endTask(screenshotTask,{failed:job.terminal!=='completed'});}
+      catch(error){reportError('结束截图任务失败',error);}
+      job.status.active=false;job.status.stage=job.terminal||'failed';job.status.finishedAt=Date.now();
+      try{persist(job);}catch(error){reportError('保存采集终态失败',error);job.status.stage=job.terminal||'failed';}
+     }finally{
+      active=null;
+      registered.forEach(k=>shortcuts.unregister(k));
+     }
     }
     return status();
    })();
    return status();
-  }catch(error){registered.forEach(k=>shortcuts.unregister(k));throw error;}
+  }catch(error){
+   registered.forEach(k=>shortcuts.unregister(k));
+   if(screenshotTask){
+    try{screenshots.endTask(screenshotTask,{failed:true});}
+    catch(cleanupError){throw Error(error.message+'；结束截图任务失败：'+cleanupError.message,{cause:error});}
+   }
+   throw error;
+  }
  }
  return {start,status,preferences,editRow,reviewDone,archiveReceipt,clearSession,pause,cancel,wait:()=>promise||Promise.resolve(status()),active:()=>!!active};
 }

@@ -22,7 +22,7 @@ export default function ScreenshotSettings({bridge,disabled}){
     <button disabled={locked||!draft} onClick={()=>act('settings',{equipmentCleanup:draft.equipmentCleanup,exceptionDays:draft.exceptionDays,maxMiB:draft.maxMiB})}>保存截图设置</button>
    </div>
    <p>异常图从截图保存时计时，下次启动自动清理过期图片。容量满时提示，不强删运行中或保留期内的图片。</p>
-   <div className="maa-actions"><button disabled={locked} onClick={()=>act('directory')}>更改截图存放位置</button><button disabled={saving} onClick={()=>act('stats')}>刷新截图占用</button><button disabled={locked} onClick={()=>act('clean')}>一键清理截图</button></div>
+   <div className="maa-actions"><button disabled={locked} onClick={()=>act('directory')}>更改截图存放位置</button><button disabled={saving} onClick={()=>act('refresh')}>刷新截图占用</button><button disabled={locked} onClick={()=>act('clean')}>一键清理截图</button></div>
    <p>更改位置用于后续截图；原位置的受管理图片仍计入统计，也可以一键清理。</p>
    {stats.errors.length>0&&<p role="alert">{stats.errors.join('；')}</p>}
   </>}

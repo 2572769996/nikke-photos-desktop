@@ -1,4 +1,4 @@
-# NIKKE Photos v1.2.2
+# NIKKE Photos v1.2.3
 
 NIKKE Photos(desktop version) 是一款面向《胜利女神：新的希望》(下称国服)的 Windows 本地桌面工具，用于管理妮姬档案、录入装备词条、生成练度统计、模拟编队伤害、规划养成资源及阅读主线剧情。完整客户端提供国服装备采集流程：读取游戏中的装备信息，经过人工核对后写入本地档案。
 
@@ -6,7 +6,12 @@ NIKKE Photos(desktop version) 是一款面向《胜利女神：新的希望》(�
 
 ## Windows 下载
 
-[下载 v1.2.2 Windows x64 完整安装包](https://github.com/Kurumi-cn/nikke-photos-desktop/releases/download/v1.2.2/NIKKE-Photos-v1.2.2-Windows-x64-Setup.exe) · [GitHub Release 与 SHA256 校验文件](https://github.com/Kurumi-cn/nikke-photos-desktop/releases/tag/v1.2.2)
+[下载 v1.2.3 Windows x64 完整安装包](https://github.com/Kurumi-cn/nikke-photos-desktop/releases/download/v1.2.3/NIKKE-Photos-v1.2.3-Windows-x64-Setup.exe) · [GitHub Release 与 SHA256 校验文件](https://github.com/Kurumi-cn/nikke-photos-desktop/releases/tag/v1.2.3)
+
+## v1.2.3 更新公告
+
+1. 装备采集流程优化
+2. 其他优化
 
 ## v1.2.2 更新公告
 
@@ -35,7 +40,7 @@ NIKKE Photos(desktop version) 是一款面向《胜利女神：新的希望》(�
 3. 软件界面新增点击音效，默认关闭，可在「更多 → 设置」中开启或关闭。
 4. 装备洗练模拟器更新了界面、动画与音效。结果词条会逐条出现，每条非空词条响一声，洗练音效可独立开关。
 5. 国际服新增角色「思凯」。
-6. 国服角色池新增钟鸣、鲁玛妮。米尔克·花漾兔女郎、爱德·特务兔女郎将于 12 月 2 日 07:00 自动加入，吉萝婷·寒冬杀手、梅登·冰玫瑰将于 12 月 16 日 07:00 自动加入，均为北京时间。
+6. 国服角色池新增钟鸣、鲁玛妮。米尔克·花漾兔女郎、爱德：特工兔女郎将于 12 月 2 日 07:00 自动加入，吉萝婷·寒冬杀手、梅登·冰玫瑰将于 12 月 16 日 07:00 自动加入，均为北京时间。
 7. 修复拉毗切换「白色诺言」与「经典假期」时的立绘显示问题。
 
 ### v1.2 主要功能
@@ -65,7 +70,7 @@ NIKKE Photos(desktop version) 是一款面向《胜利女神：新的希望》(�
 
 推荐画质：全屏幕模式(装备采集支持 1920×1080 和 2560×1440 游戏客户区，2K 为试用适配)，抗锯齿：8x，人物分辨率：高
 
-v1.2.2 提供 Windows x64 完整安装包 `NIKKE-Photos-v1.2.2-Windows-x64-Setup.exe`。运行安装向导，选择目录，完成后从开始菜单打开。分发目录的 SHA256SUMS.txt 可用于核对文件。
+v1.2.3 提供 Windows x64 完整安装包 `NIKKE-Photos-v1.2.3-Windows-x64-Setup.exe`。运行安装向导，选择目录，完成后从开始菜单打开。分发目录的 SHA256SUMS.txt 可用于核对文件。
 
 更新时可覆盖安装到原目录；存档放在独立的用户数据目录中。软件不会自动下载更新，新版本仍需手动下载安装。
 

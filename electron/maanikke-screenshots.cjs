@@ -29,13 +29,36 @@ function createScreenshotStore({cacheRoot,now=Date.now}){
   return resolved;
  }
  const protectedEntry=e=>{const t=state.tasks[e.taskId];return e.reviewProtected===true||t?.status==='active'||t?.resumeProtected===true};
+ const sizes=new Map();
+ let totalBytes=0,scanErrors=[];
+ function refresh(){
+  sizes.clear();totalBytes=0;scanErrors=[];
+  for(const entry of state.entries){
+   try{
+    const filename=file(entry);
+    if(!fs.existsSync(filename))continue;
+    const size=fs.statSync(filename).size;
+    sizes.set(entry.id,size);totalBytes+=size;
+   }catch(error){scanErrors.push(error.message);}
+  }
+  return stats();
+ }
+ function deleteFile(entry){
+  const filename=file(entry);
+  let freed=0;
+  if(fs.existsSync(filename)){freed=fs.statSync(filename).size;fs.unlinkSync(filename);}
+  totalBytes-=sizes.get(entry.id)||0;sizes.delete(entry.id);
+  return freed;
+ }
  function remove(predicate){
   let deleted=0,freedBytes=0;const errors=[];
   state.entries=state.entries.filter(e=>{
    if(!predicate(e)||protectedEntry(e))return true;
-   try{const p=file(e);if(fs.existsSync(p)){freedBytes+=fs.statSync(p).size;fs.unlinkSync(p);}deleted++;return false;}
+   try{freedBytes+=deleteFile(e);deleted++;return false;}
    catch(error){errors.push(error.message);return true;}
-  });state.lastCleanupErrors=errors;persist();return {deleted,freedBytes,errors};
+  });
+  if(deleted||errors.length||state.lastCleanupErrors?.length){state.lastCleanupErrors=errors;persist();}
+  return {deleted,freedBytes,errors};
  }
  function sweep(){return remove(e=>{
   const t=state.tasks[e.taskId];
@@ -44,20 +67,29 @@ function createScreenshotStore({cacheRoot,now=Date.now}){
   return t?.status!=='active';
  });}
  function stats(){
-  let bytes=0,protectedBytes=0,count=0;const errors=[...(state.lastCleanupErrors||[])],locations=new Map();
-  for(const e of state.entries){try{const p=file(e);if(!fs.existsSync(p))continue;const size=fs.statSync(p).size;count++;bytes+=size;if(protectedEntry(e))protectedBytes+=size;locations.set(e.directory,(locations.get(e.directory)||0)+size);}catch(error){errors.push(error.message);}}
-  return {settings:{...state.settings},count,bytes,protectedBytes,activeTasks:Object.values(state.tasks).filter(t=>t.status==='active').length,locations:[...locations].map(([directory,bytes])=>({directory,bytes})),errors};
+  let protectedBytes=0;const locations=new Map();
+  for(const entry of state.entries){
+   const size=sizes.get(entry.id);if(size===undefined)continue;
+   if(protectedEntry(entry))protectedBytes+=size;
+   locations.set(entry.directory,(locations.get(entry.directory)||0)+size);
+  }
+  return {settings:{...state.settings},count:sizes.size,bytes:totalBytes,protectedBytes,activeTasks:Object.values(state.tasks).filter(t=>t.status==='active').length,locations:[...locations].map(([directory,bytes])=>({directory,bytes})),errors:[...(state.lastCleanupErrors||[]),...scanErrors]};
  }
- function beginTask(){const id=crypto.randomUUID();state.tasks[id]={status:'active',createdAt:now(),completedCharacters:[]};persist();return id;}
+ function beginTask(){
+  const id=crypto.randomUUID();state.tasks[id]={status:'active',createdAt:now(),completedCharacters:[]};
+  try{persist();}catch(error){delete state.tasks[id];throw error;}
+  return id;
+ }
  function add({taskId,kind='process',character=null,png,savedAt=now()}){
   if(state.tasks[taskId]?.status!=='active'||!['process','equipment','exception'].includes(kind))throw Error('截图任务或类别无效');
   if(kind==='equipment'&&(!character||typeof character!=='string'))throw Error('装备截图需要角色标识');
   if(!Buffer.isBuffer(png)||png.length<8||png.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')throw Error('不是有效PNG截图');
   if(!Number.isFinite(savedAt)||savedAt<=0||savedAt>now()+1000)throw Error('截图保存时间无效');
-  sweep();const usage=stats();
-  if(usage.bytes+png.length>state.settings.maxMiB*1024*1024)throw Error('截图空间达到上限，请清理或提高容量上限；未删除运行中或保留期内的截图');
+  sweep();
+  if(totalBytes+png.length>state.settings.maxMiB*1024*1024)throw Error('截图空间达到上限，请清理或提高容量上限；未删除运行中或保留期内的截图');
   const root=directory(state.settings.directory),id=crypto.randomUUID(),filename=id+'.png';
   fs.writeFileSync(path.join(root,filename),png,{flag:'wx'});
+  sizes.set(id,png.length);totalBytes+=png.length;
   state.entries.push({id,filename,directory:root,taskId,kind,character,savedAt});persist();return id;
  }
  function characterDone(taskId,character){const t=state.tasks[taskId];if(!t||t.status!=='active')throw Error('没有运行中的任务');t.completedCharacters=[...new Set([...t.completedCharacters,character])];persist();
@@ -65,7 +97,7 @@ function createScreenshotStore({cacheRoot,now=Date.now}){
   // after its extracted result has been durably saved by the caller.
   if(state.settings.equipmentCleanup==='character'){
    const candidates=state.entries.filter(e=>e.taskId===taskId&&e.kind==='equipment'&&e.character===character&&!e.reviewProtected);
-   for(const e of candidates){const p=file(e);if(fs.existsSync(p))fs.unlinkSync(p);state.entries=state.entries.filter(v=>v.id!==e.id);}persist();
+   for(const e of candidates){deleteFile(e);state.entries=state.entries.filter(v=>v.id!==e.id);}persist();
   }
  }
  function endTask(taskId,{failed=false,resumeProtected=false}={}){
@@ -73,7 +105,7 @@ function createScreenshotStore({cacheRoot,now=Date.now}){
   if(failed){const latest=state.entries.filter(e=>e.taskId===taskId).at(-1);if(latest)latest.kind='exception';}
   t.status=failed?'failed':'completed';t.finishedAt=now();t.resumeProtected=resumeProtected;persist();return sweep();
  }
- function markException(id){const entry=state.entries.find(e=>e.id===id);if(entry){entry.kind='exception';persist();}}
+ function markException(id,character){const entry=state.entries.find(e=>e.id===id);if(entry){entry.kind='exception';if(character!==undefined)entry.character=character;persist();}}
  function holdReview(id){const entry=state.entries.find(e=>e.id===id);if(!entry||entry.kind!=='equipment')throw Error('装备截图不存在');entry.reviewProtected=true;persist();}
  function releaseReview(ids){if(!Array.isArray(ids)||ids.some(id=>typeof id!=='string'))throw Error('无效截图标识');for(const e of state.entries)if(ids.includes(e.id))delete e.reviewProtected;persist();return sweep();}
  function read(id){const entry=state.entries.find(e=>e.id===id);if(!entry)return {available:false};const p=file(entry);if(!fs.existsSync(p))return {available:false};return {available:true,image:'data:image/png;base64,'+fs.readFileSync(p).toString('base64'),savedAt:entry.savedAt};}
@@ -93,6 +125,7 @@ function createScreenshotStore({cacheRoot,now=Date.now}){
   for(const t of Object.values(state.tasks))if(t.status==='active'){t.status='interrupted';t.resumeProtected=true;}
   persist();return sweep();
  }
- return {stats,beginTask,add,characterDone,endTask,markException,holdReview,releaseReview,read,settings,changeDirectory,startup,clean:()=>remove(()=>true)};
+ if(state.entries.length)refresh();
+ return {stats,refresh,beginTask,add,characterDone,endTask,markException,holdReview,releaseReview,read,settings,changeDirectory,startup,clean:()=>remove(()=>true)};
 }
 module.exports={createScreenshotStore,DAY};

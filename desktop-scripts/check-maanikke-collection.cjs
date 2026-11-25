@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {PNG}=require('pngjs'),{createCollection,normalizeRows}=require('../electron/maanikke-collection.cjs');
 const {createScreenshotStore}=require('../electron/maanikke-screenshots.cjs');
-const project=path.resolve(__dirname,'..'),cacheRoot=path.resolve(project,'../codex temp/nikke-desktop/automation-dev-copy/collection-check-'+Date.now());
+const project=path.resolve(__dirname,'..'),cacheRoot=path.join(process.env.NIKKE_CACHE_DIR||path.resolve(project,'../codex temp/nikke-desktop/automation-dev-copy'),'collection-check-'+Date.now());
 fs.mkdirSync(cacheRoot,{recursive:true});const shots=createScreenshotStore({cacheRoot});shots.settings({equipmentCleanup:'character'});
 const roster=JSON.parse(fs.readFileSync(path.join(project,'src/data/roster.json'))).characters,codes=['桃乐丝','小红帽'].map(name=>roster.find(c=>c.nameCn===name).nameCode);
 const target={hwnd:'123',pid:123},registered=new Set();
@@ -25,8 +25,9 @@ async function launch(_exe,args){
  await send('equipment',{nameCode:codes[0],slot:'hands',classification:'overload'},true);
  await send('equipment',{nameCode:codes[0],slot:'legs',classification:'equipment_unknown'},true);
  await send('character',{nameCode:codes[0]});assert.equal(shots.stats().count,4);
- await send('characterBegin',{nameCode:codes[1],index:1});await send('frame',{},true);
- await send('skipped',{nameCode:codes[1],reason:'无法唯一判别'});
+ const search={nameCode:codes[1],searchTerm:'小红帽',clientSize:[1920,1080]};
+ await send('characterBegin',{nameCode:codes[1],index:1});await send('frame',{...search,phase:'等待搜索结果'},true);
+ await send('skipped',{...search,reason:'无法唯一判别'});
  await send('done',{returnedToLobby:true});return {stdout:'{"canceled":false}'};
 }
 async function main(){

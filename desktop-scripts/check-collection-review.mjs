@@ -9,6 +9,10 @@ assert.deepEqual(patch.characters.a.skills,old.skills);assert.equal(patch.charac
 assert.equal(collectionPatch(characters,{a:{status:'collecting'}},['a']).nameCodes.length,0)
 const candidate={position:1,status:'unreadable',functionType:'StatAtk',name:'攻击力增加',value:6.88,suggested:true,needsConfirm:true}
 const candidateDraft={a:{status:'complete',equipment:{head:{rows:[candidate]}}}}
+const unreviewed=collectionPatch(characters,candidateDraft,['a'])
+assert.equal(unreviewed.characters.a.equipments[0][0].functionType,'StatAtk')
+assert.equal(unreviewed.candidateRows,1)
+candidateDraft.a.equipment.head.rows[0]={...candidate,value:null}
 assert.equal(collectionPatch(characters,candidateDraft,['a']).characters.a.equipments[0][0].functionType,'StatDef')
 candidateDraft.a.equipment.head.rows[0]={...candidate,status:'ok',needsConfirm:false,manual:true}
 assert.equal(collectionPatch(characters,candidateDraft,['a']).characters.a.equipments[0][0].functionType,'StatAtk')
